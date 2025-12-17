@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { TransactionList } from './components/TransactionList';
@@ -8,9 +8,15 @@ import { Reports } from './components/Reports';
 import { AiAssistant } from './components/AiAssistant';
 import { Settings } from './components/Settings';
 import { Goals } from './components/Goals';
+import { Auth } from './components/Auth';
 
-const App: React.FC = () => {
+const MainApp: React.FC = () => {
+  const { user } = useApp();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  if (!user) {
+    return <Auth />;
+  }
 
   const renderContent = () => {
     switch (activeTab) {
@@ -25,10 +31,16 @@ const App: React.FC = () => {
   };
 
   return (
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+      {renderContent()}
+    </Layout>
+  );
+}
+
+const App: React.FC = () => {
+  return (
     <AppProvider>
-      <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-        {renderContent()}
-      </Layout>
+      <MainApp />
     </AppProvider>
   );
 };

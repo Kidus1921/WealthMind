@@ -1,10 +1,120 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// --- Rate Limiting Logic ---
+const MAX_REQUESTS_PER_HOUR = 50;
+const RATE_LIMIT_KEY = 'wm_ai_rate_limit';
+
+const checkRateLimit = (): boolean => {
+  try {
+    const raw = localStorage.getItem(RATE_LIMIT_KEY);
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    
+    let history: number[] = raw ? JSON.parse(raw) : [];
+    
+    // Filter out timestamps older than 1 hour
+    history = history.filter(time => now - time < oneHour);
+    
+    if (history.length >= MAX_REQUESTS_PER_HOUR) {
+      console.warn("AI Rate limit exceeded");
+      return false;
+    }
+    
+    // Add current request
+    history.push(now);
+    localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(history));
+    return true;
+  } catch (e) {
+    return true; // Fail open if storage errors
+  }
+};
+
+// Helper: Convert File to Base64 for Gemini
+const fileToGenerativePart = async (file: File) => {
+    return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve({
+          inlineData: {
+            data: base64String,
+            mimeType: file.type,
+          },
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+};
+
+// Smart Import: Analyze Image/PDF
+export const analyzeFinancialDocument = async (file: File, availableCategories: string[]) => {
+    if (!checkRateLimit()) throw new Error("Rate limit exceeded");
+
+    try {
+        const filePart = await fileToGenerativePart(file);
+        
+        const categoriesStr = availableCategories.join(", ");
+        const modelId = "gemini-2.5-flash"; // 2.5 Flash supports multimodal (images/pdf)
+        
+        const prompt = `
+        Analyze this financial document (receipt, invoice, or bank statement). 
+        Extract the key transaction details into a JSON object.
+        
+        Rules:
+        1. Extract the total Amount (number).
+        2. Identify the Vendor/Payee as the Description.
+        3. Extract the Date in ISO YYYY-MM-DD format.
+        4. Infer the Category from this list: [${categoriesStr}]. If unclear, use "Other".
+        5. Determine if it is 'income' or 'expense'.
+        6. Infer the Payment Method (Cash, Card, Transfer, etc).
+        7. Provide a 'confidence' score (0-1) based on legibility.
+        
+        If the document is not readable or not a financial document, return null values.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: modelId,
+            contents: {
+                parts: [
+                    filePart,
+                    { text: prompt }
+                ]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        amount: { type: Type.NUMBER },
+                        type: { type: Type.STRING, enum: ["income", "expense"] },
+                        category: { type: Type.STRING },
+                        description: { type: Type.STRING },
+                        date: { type: Type.STRING },
+                        paymentMethod: { type: Type.STRING },
+                        confidence: { type: Type.NUMBER }
+                    }
+                }
+            }
+        });
+
+        if (!response.text) return null;
+        return JSON.parse(response.text);
+
+    } catch (error) {
+        console.error("Gemini Document Analysis Error:", error);
+        return null;
+    }
+};
+
 // Analyze a description to auto-categorize
 export const autoCategorizeTransaction = async (description: string, expenseCategories: string[]) => {
+  if (!checkRateLimit()) return null;
+
   try {
     const modelId = "gemini-2.5-flash";
     const categoriesString = expenseCategories.join(", ");
@@ -49,6 +159,8 @@ export const autoCategorizeTransaction = async (description: string, expenseCate
 
 // Generate insights based on recent history
 export const generateFinancialInsights = async (transactions: Transaction[]) => {
+  if (!checkRateLimit()) return [];
+
   try {
     if (!transactions.length) return [];
     
@@ -95,6 +207,8 @@ export const generateFinancialInsights = async (transactions: Transaction[]) => 
 
 // Natural Language Search / Chat
 export const chatWithData = async (query: string, transactions: Transaction[]) => {
+  if (!checkRateLimit()) return "Rate limit exceeded. Please try again later.";
+
   try {
     // Summarize data for the context
     const summary = transactions.map(t => 

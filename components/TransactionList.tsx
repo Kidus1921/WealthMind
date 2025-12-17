@@ -1,14 +1,17 @@
+
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TransactionForm } from './TransactionForm';
+import { SmartImportModal } from './SmartImportModal';
 import { Transaction } from '../types';
-import { Search, Filter, Trash2, Edit2, Plus } from 'lucide-react';
+import { Search, Filter, Trash2, Edit2, Plus, Sparkles } from 'lucide-react';
 
 export const TransactionList: React.FC = () => {
   const { transactions, deleteTransaction, currency } = useApp();
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>(undefined);
 
   const filtered = transactions.filter(t => {
@@ -38,13 +41,22 @@ export const TransactionList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Transactions</h2>
-        <button
-          onClick={handleAddNew}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2 transition-all shadow-lg shadow-primary/30"
-        >
-          <Plus size={18} />
-          Add New
-        </button>
+        <div className="flex gap-2">
+           <button
+            onClick={() => setIsImportOpen(true)}
+            className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex items-center gap-2 transition-all font-medium"
+          >
+            <Sparkles size={18} />
+            Smart Import
+          </button>
+          <button
+            onClick={handleAddNew}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2 transition-all shadow-lg shadow-primary/30 font-medium"
+          >
+            <Plus size={18} />
+            Add New
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -143,6 +155,10 @@ export const TransactionList: React.FC = () => {
 
       {isFormOpen && (
         <TransactionForm onClose={() => setIsFormOpen(false)} editTransaction={editingTransaction} />
+      )}
+
+      {isImportOpen && (
+        <SmartImportModal onClose={() => setIsImportOpen(false)} />
       )}
     </div>
   );
