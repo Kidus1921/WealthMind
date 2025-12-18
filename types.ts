@@ -10,9 +10,10 @@ export interface Transaction {
   type: TransactionType;
   loanType?: LoanKind; // borrowed or lent
   subtype?: TransactionSubtype;
+  counterparty?: string; // Person or Organization for loans/repayments
   category: string;
   description: string; 
-  date: string; // Transaction date (ISO)
+  date: string; // ISO String
   dueDate?: string; // Repayment deadline (ISO)
   notes?: string;
   paymentMethod?: string;
@@ -22,7 +23,22 @@ export interface Transaction {
   nextOccurrence?: string; // ISO String
   createdAt: number;
   referenceId?: string;
-  counterparty?: string; // Person or Organization for loans/repayments
+}
+
+export interface ChatMessage {
+  id: string;
+  sessionId: string;
+  role: 'user' | 'ai';
+  content: string;
+  createdAt: string;
+  insights?: AIInsight[];
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  lastMessageAt: string;
 }
 
 export interface GoalContribution {
@@ -63,8 +79,8 @@ export interface AIInsight {
 }
 
 export const DEFAULT_CATEGORIES: CategoryState = {
-  income: ['Salary', 'Freelance', 'Investments', 'Gift', 'Interest Received', 'Other'],
-  expense: ['Food', 'Transport', 'Housing', 'Utilities', 'Entertainment', 'Health', 'Shopping', 'Interest Paid', 'Loan Repayment', 'Other']
+  income: ['Salary', 'Freelance', 'Investments', 'Gift', 'Other'],
+  expense: ['Food', 'Transport', 'Housing', 'Utilities', 'Entertainment', 'Health', 'Shopping', 'Education', 'Insurance', 'Loan Repayment', 'Other']
 };
 
 export const DEFAULT_PAYMENT_METHODS = ['Cash', 'Credit Card', 'Debit Card', 'Bank Transfer', 'Mobile Money'];

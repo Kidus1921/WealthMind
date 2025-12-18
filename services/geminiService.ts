@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Transaction } from "../types";
+import { Transaction, AIInsight } from "../types.ts";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -15,138 +15,132 @@ const checkRateLimit = (): boolean => {
     const oneHour = 60 * 60 * 1000;
     
     let history: number[] = raw ? JSON.parse(raw) : [];
-    
-    // Filter out timestamps older than 1 hour
     history = history.filter(time => now - time < oneHour);
     
-    if (history.length >= MAX_REQUESTS_PER_HOUR) {
-      console.warn("AI Rate limit exceeded");
-      return false;
-    }
+    if (history.length >= MAX_REQUESTS_PER_HOUR) return false;
     
-    // Add current request
     history.push(now);
     localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(history));
     return true;
-  } catch (e) {
-    return true; // Fail open if storage errors
+  } catch (e) { return true; }
+};
+
+export const generateSessionTitle = async (firstMessage: string) => {
+  if (!checkRateLimit()) return "New Conversation";
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Generate a 2-4 word title for a financial chat starting with: "${firstMessage}". Return only the plain text title without quotes.`,
+    });
+    return response.text?.trim() || "New Conversation";
+  } catch (error) { return "New Conversation"; }
+};
+
+export const chatWithData = async (
+  query: string, 
+  transactions: Transaction[], 
+  history: {role: string, content: string}[],
+  currency: string = '$'
+) => {
+  if (!checkRateLimit()) return null;
+  try {
+    // 1. Build financial context summary
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+
+    let monthInc = 0;
+    let monthExp = 0;
+    let totalBorrowed = 0;
+    let totalLent = 0;
+
+    transactions.forEach(t => {
+      const d = new Date(t.date);
+      const isThisMonth = d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+      
+      if (t.type === 'loan') {
+        if (t.loanType === 'borrowed') totalBorrowed += t.amount;
+        else totalLent += t.amount;
+      } else if (t.category === 'Loan Repayment') {
+        if (t.type === 'expense') totalBorrowed -= t.amount;
+        else totalLent -= t.amount;
+      }
+
+      if (isThisMonth) {
+        if (t.type === 'income') monthInc += t.amount;
+        else if (t.type === 'expense') monthExp += t.amount;
+      }
+    });
+
+    const context = `
+CURRENT MONTH: ${monthInc} income, ${monthExp} expenses.
+LOANS: You owe ${totalBorrowed}, Others owe you ${totalLent}.
+DATA: ${transactions.slice(0, 30).map(t => `${t.date.split('T')[0]}: ${t.description} (${currency}${t.amount})`).join('; ')}
+    `;
+
+    const chatHistoryContext = history.map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
+
+    const prompt = `You are WealthMind, an advanced financial companion. 
+LOAN LOGIC: Principal is debt (not income/expense). Interest paid is expense.
+STRICT RULE: Only use provided user data. If unknown, say so.
+FORMAT: Plain conversational answer. No emojis.
+
+FINANCIAL CONTEXT:
+${context}
+
+PREVIOUS MESSAGES:
+${chatHistoryContext}
+
+USER QUESTION: "${query}"
+
+Return JSON:
+{
+  "answer": "Clear, friendly, professional response.",
+  "insights": [
+    { "type": "warning|tip|praise|neutral", "message": "Specific, actionable 1-sentence insight." }
+  ]
+}`;
+
+    const response = await ai.models.generateContent({ 
+      model: "gemini-3-flash-preview", 
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            answer: { type: Type.STRING },
+            insights: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  type: { type: Type.STRING, enum: ["warning", "tip", "praise", "neutral"] },
+                  message: { type: Type.STRING }
+                },
+                required: ["type", "message"]
+              }
+            }
+          },
+          required: ["answer", "insights"]
+        }
+      }
+    });
+
+    return JSON.parse(response.text || "null");
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    return null;
   }
 };
 
-// Helper: Convert File to Base64 for Gemini
-const fileToGenerativePart = async (file: File) => {
-    return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = (reader.result as string).split(',')[1];
-        resolve({
-          inlineData: {
-            data: base64String,
-            mimeType: file.type,
-          },
-        });
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-};
-
-// Smart Import: Analyze Image/PDF
-export const analyzeFinancialDocument = async (file: File, availableCategories: string[]) => {
-    if (!checkRateLimit()) throw new Error("Rate limit exceeded");
-
-    try {
-        const filePart = await fileToGenerativePart(file);
-        
-        const categoriesStr = availableCategories.join(", ");
-        // Using gemini-3-flash-preview for multimodal extraction as per guidelines
-        const modelId = "gemini-3-flash-preview"; 
-        
-        const prompt = `
-        Analyze this financial document (receipt, invoice, or bank statement). 
-        Extract the key transaction details.
-        
-        For the following fields, provide the extracted value AND a confidence score (0.0 to 1.0) reflecting legibility and certainty.
-        
-        1. Amount (number).
-        2. Description (Vendor/Payee name).
-        3. Date (ISO YYYY-MM-DD).
-        4. Category (infer from list: [${categoriesStr}] or use "Other").
-        5. Reference ID (Invoice Number, Transaction ID, Receipt Number).
-        
-        Also extract:
-        6. Type ('income' or 'expense').
-        7. Payment Method.
-        8. Overall document confidence.
-        
-        If a field is missing or unreadable, return null for the value and 0 for confidence.
-        `;
-
-        const response = await ai.models.generateContent({
-            model: modelId,
-            contents: {
-                parts: [
-                    filePart,
-                    { text: prompt }
-                ]
-            },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        amount: { type: Type.NUMBER },
-                        amountConfidence: { type: Type.NUMBER },
-                        
-                        description: { type: Type.STRING },
-                        descriptionConfidence: { type: Type.NUMBER },
-                        
-                        date: { type: Type.STRING },
-                        dateConfidence: { type: Type.NUMBER },
-                        
-                        category: { type: Type.STRING },
-                        categoryConfidence: { type: Type.NUMBER },
-                        
-                        referenceId: { type: Type.STRING },
-                        referenceIdConfidence: { type: Type.NUMBER },
-                        
-                        type: { type: Type.STRING, enum: ["income", "expense"] },
-                        paymentMethod: { type: Type.STRING },
-                        confidence: { type: Type.NUMBER } // Overall confidence
-                    }
-                }
-            }
-        });
-
-        if (!response.text) return null;
-        return JSON.parse(response.text);
-
-    } catch (error) {
-        console.error("Gemini Document Analysis Error:", error);
-        return null;
-    }
-};
-
-// Analyze a description to auto-categorize
 export const autoCategorizeTransaction = async (description: string, expenseCategories: string[]) => {
   if (!checkRateLimit()) return null;
-
   try {
-    // Using gemini-3-flash-preview for basic text tasks
-    const modelId = "gemini-3-flash-preview";
     const categoriesString = expenseCategories.join(", ");
-    
-    const prompt = `Analyze this transaction description: "${description}". 
-    Predict the most likely category from this specific list: [${categoriesString}].
-    If it doesn't fit well, use "Other".
-    Also predict the transaction type (income or expense), and a likely payment method.
-    Predict a short "reason" for spending.
-    Determine if it is likely a recurring transaction.
-    `;
-
     const response = await ai.models.generateContent({
-      model: modelId,
-      contents: prompt,
+      model: "gemini-3-flash-preview",
+      contents: `Analyze: "${description}". Predict category from: [${categoriesString}].`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -161,46 +155,19 @@ export const autoCategorizeTransaction = async (description: string, expenseCate
         }
       }
     });
-    
-    if (!response.text) {
-      console.warn("Gemini returned empty text for auto-categorize");
-      return null;
-    }
-
-    return JSON.parse(response.text);
-  } catch (error) {
-    console.error("Gemini Auto-Categorize Error:", error);
-    return null;
-  }
+    return JSON.parse(response.text || "null");
+  } catch (error) { return null; }
 };
 
-// Generate insights based on recent history
 export const generateFinancialInsights = async (transactions: Transaction[]) => {
-  if (!checkRateLimit()) return [];
-
+  if (!checkRateLimit() || !transactions.length) return [];
   try {
-    if (!transactions.length) return [];
-    
-    // Limit context to last 50 transactions to save tokens/latency
-    const recent = transactions.slice(0, 50).map(t => ({
-      date: t.date,
-      amount: t.amount,
-      category: t.category,
-      type: t.type
+    const recent = transactions.slice(0, 30).map(t => ({
+      date: t.date, amount: t.amount, category: t.category, type: t.type
     }));
-
-    // Using gemini-3-flash-preview for analysis tasks
-    const modelId = "gemini-3-flash-preview";
-    const prompt = `You are a financial advisor. Analyze these recent transactions: ${JSON.stringify(recent)}.
-    Provide 3 short, actionable insights or observations. 
-    1. A spending trend.
-    2. A specific category alert or praise.
-    3. A brief saving recommendation.
-    Keep them concise (under 20 words each).`;
-
     const response = await ai.models.generateContent({
-      model: modelId,
-      contents: prompt,
+      model: "gemini-3-flash-preview",
+      contents: `Provide 2-3 actionable insights for: ${JSON.stringify(recent)}.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -215,40 +182,46 @@ export const generateFinancialInsights = async (transactions: Transaction[]) => 
         }
       }
     });
-
     return JSON.parse(response.text || "[]");
-  } catch (error) {
-    console.error("Gemini Insights Error", error);
-    return [];
-  }
+  } catch (error) { return []; }
 };
 
-// Natural Language Search / Chat
-export const chatWithData = async (query: string, transactions: Transaction[]) => {
-  if (!checkRateLimit()) return "Rate limit exceeded. Please try again later.";
+export const analyzeFinancialDocument = async (file: File, availableCategories: string[]) => {
+    if (!checkRateLimit()) throw new Error("Rate limit exceeded");
+    try {
+        const filePart = await fileToGenerativePart(file);
+        const categoriesStr = availableCategories.join(", ");
+        const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: { parts: [filePart, { text: `Extract data (amount, date, desc, category from [${categoriesStr}])` }] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        amount: { type: Type.NUMBER },
+                        description: { type: Type.STRING },
+                        date: { type: Type.STRING },
+                        category: { type: Type.STRING },
+                        referenceId: { type: Type.STRING },
+                        type: { type: Type.STRING, enum: ["income", "expense"] },
+                        paymentMethod: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+        return JSON.parse(response.text || "null");
+    } catch (error) { return null; }
+};
 
-  try {
-    // Summarize data for the context
-    const summary = transactions.map(t => 
-      `${t.date.split('T')[0]}: ${t.type} of $${t.amount} for ${t.category} (${t.description})`
-    ).join('\n');
-
-    // Using gemini-3-flash-preview for chat-based extraction and reasoning
-    const modelId = "gemini-3-flash-preview";
-    const prompt = `Context: User's financial transaction history:\n${summary}\n\nUser Question: "${query}"\n\n
-    Answer the user's question accurately based on the data provided. 
-    If calculating totals, be precise. 
-    If the answer isn't in the data, say so. 
-    Keep the tone helpful and professional.`;
-
-    const response = await ai.models.generateContent({
-      model: modelId,
-      contents: prompt,
+const fileToGenerativePart = async (file: File) => {
+    return new Promise<{ inlineData: { data: string; mimeType: string } }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve({ inlineData: { data: base64String, mimeType: file.type } });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
     });
-
-    return response.text;
-  } catch (error) {
-    console.error("Gemini Chat Error", error);
-    return "I'm having trouble analyzing your data right now. Please try again later.";
-  }
 };

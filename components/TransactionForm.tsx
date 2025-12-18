@@ -3,26 +3,29 @@ import React, { useState, useEffect } from 'react';
 import { Transaction, TransactionType, LoanKind, TransactionSubtype } from '../types.ts';
 import { autoCategorizeTransaction } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
-import { Sparkles, Loader2, Check, HandCoins, Info, Calendar, User, DollarSign, X, Clock } from 'lucide-react';
+import { Sparkles, Loader2, Check, HandCoins, Info, Calendar, User, DollarSign, X, Clock, Wallet } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
   editTransaction?: Transaction;
+  presetData?: Partial<Transaction>;
 }
 
-export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction }) => {
+export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, presetData }) => {
   const { addTransaction, updateTransaction, categories, paymentMethods } = useApp();
   const [loadingAi, setLoadingAi] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<TransactionType>(editTransaction?.type || 'expense');
+  const [activeTab, setActiveTab] = useState<TransactionType>(
+    editTransaction?.type || (presetData?.type as TransactionType) || 'expense'
+  );
   const [hasDueDate, setHasDueDate] = useState(!!editTransaction?.dueDate);
   
   const [formData, setFormData] = useState<Partial<Transaction>>(
     editTransaction || {
       amount: 0,
-      type: 'expense',
-      description: '',
-      category: '',
+      type: (presetData?.type as TransactionType) || 'expense',
+      description: presetData?.description || '',
+      category: presetData?.category || '',
       date: new Date().toISOString().split('T')[0],
       dueDate: '',
       paymentMethod: paymentMethods[0] || 'Cash',
@@ -30,13 +33,13 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction }) =
       recurrenceFrequency: 'none',
       referenceId: '',
       loanType: 'borrowed',
-      counterparty: '',
+      counterparty: presetData?.counterparty || '',
       subtype: null
     }
   );
 
   useEffect(() => {
-    if (activeTab === 'loan') return;
+    if (activeTab === 'loan' || presetData) return;
     if (!formData.description || formData.description.length < 3 || editTransaction) return;
 
     const timer = setTimeout(async () => {
@@ -61,7 +64,7 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction }) =
     }, 1000); 
 
     return () => clearTimeout(timer);
-  }, [formData.description, editTransaction, categories.expense, activeTab]);
+  }, [formData.description, editTransaction, categories.expense, activeTab, presetData]);
 
   const handleAiAutoFill = async () => {
     if (!formData.description) return;
@@ -125,7 +128,7 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction }) =
   const isRepaymentSelected = activeTab === 'expense' && formData.category === 'Loan Repayment';
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
       <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
         <div className="flex p-2 bg-gray-100 dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 shrink-0">
           {(['income', 'expense', 'loan'] as const).map(tab => (
@@ -133,7 +136,11 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction }) =
               key={tab}
               onClick={() => {
                 setActiveTab(tab);
-                setFormData(prev => ({ ...prev, type: tab, category: tab === 'income' ? categories.income[0] : categories.expense[0] }));
+                setFormData(prev => ({ 
+                  ...prev, 
+                  type: tab, 
+                  category: tab === 'loan' ? 'Loan' : (tab === 'income' ? categories.income[0] : categories.expense[0]) 
+                }));
               }}
               className={`flex-1 py-3 text-sm font-bold capitalize transition-all rounded-2xl flex items-center justify-center gap-2
                 ${activeTab === tab 
@@ -160,26 +167,41 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction }) =
                       <button type="button" onClick={() => setFormData({...formData, loanType: 'lent'})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${formData.loanType === 'lent' ? 'bg-white dark:bg-slate-700 text-emerald-500 shadow-sm' : 'text-gray-400'}`}>Lent (Owed to me)</button>
                    </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="col-span-2">
+                <div className="grid grid-cols-1 gap-4">
+                   <div>
                       <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Person / Organization</label>
                       <div className="relative">
                          <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                          <input type="text" required placeholder="e.g. Kaleb, Bank of America" value={formData.counterparty} onChange={e => setFormData({...formData, counterparty: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
                       </div>
                    </div>
-                   <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Amount</label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input type="number" required min="0.01" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
+                   <div className="grid grid-cols-2 gap-4">
+                      <div>
+                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Amount</label>
+                         <div className="relative">
+                           <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                           <input type="number" required min="0.01" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
+                         </div>
+                      </div>
+                      <div>
+                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Date</label>
+                         <div className="relative">
+                           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                           <input type="date" required value={formData.date?.split('T')[0]} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
+                         </div>
                       </div>
                    </div>
                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Date</label>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
                       <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input type="date" required value={formData.date?.split('T')[0]} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
+                        <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <select 
+                          value={formData.paymentMethod} 
+                          onChange={e => setFormData({...formData, paymentMethod: e.target.value})} 
+                          className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white appearance-none"
+                        >
+                          {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
                       </div>
                    </div>
                 </div>
@@ -221,6 +243,12 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction }) =
                     <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white">
                       <option value="">Select Category</option>
                       {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
+                    <select value={formData.paymentMethod} onChange={e => setFormData({...formData, paymentMethod: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white">
+                      {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
                 </div>

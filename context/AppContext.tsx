@@ -278,32 +278,133 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await supabase.from('transactions').update(dbPayload).eq('id', updated.id);
   };
 
+  const updateSettings = async (updates: any) => {
+    if (!settingsId || !user) return;
+    await supabase.from('settings').update(updates).eq('id', settingsId);
+  };
+
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
+    updateSettings({ theme: newTheme });
   };
 
-  const setCurrency = (c: string) => setCurrencyState(c);
-  const addCategory = (type: 'income' | 'expense', name: string) => {};
-  const deleteCategory = (type: 'income' | 'expense', name: string) => {};
-  const addPaymentMethod = (name: string) => {};
-  const deletePaymentMethod = (name: string) => {};
-  const addGoal = async (goal: FinancialGoal) => {};
-  const updateGoal = async (updated: FinancialGoal) => {};
-  const deleteGoal = async (id: string) => {};
-  const addGoalContribution = async (goalId: string, amount: number, note?: string) => {};
-  const deleteGoalContribution = async (goalId: string, logId: string) => {};
-  const resetData = () => {};
+  const setCurrency = (c: string) => {
+    setCurrencyState(c);
+    updateSettings({ currency: c });
+  };
 
-  if (loading) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-white">
-        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-        <h2 className="text-xl font-bold">WealthMind</h2>
-        <p className="text-sm text-gray-500 mt-2">Securing your session...</p>
-      </div>
-    );
-  }
+  const addCategory = (type: 'income' | 'expense', name: string) => {
+    if (!name.trim()) return;
+    setCategories(prev => {
+      if (prev[type].includes(name.trim())) return prev;
+      const newState = { ...prev, [type]: [...prev[type], name.trim()] };
+      updateSettings({ income_categories: newState.income, expense_categories: newState.expense });
+      return newState;
+    });
+  };
+
+  const deleteCategory = (type: 'income' | 'expense', name: string) => {
+    setCategories(prev => {
+      const newState = { ...prev, [type]: prev[type].filter(c => c !== name) };
+      updateSettings({ income_categories: newState.income, expense_categories: newState.expense });
+      return newState;
+    });
+  };
+
+  const addPaymentMethod = (name: string) => {
+    if (!name.trim()) return;
+    setPaymentMethods(prev => {
+      if (prev.includes(name.trim())) return prev;
+      const newList = [...prev, name.trim()];
+      updateSettings({ payment_methods: newList });
+      return newList;
+    });
+  };
+
+  const deletePaymentMethod = (name: string) => {
+    setPaymentMethods(prev => {
+      const newList = prev.filter(p => p !== name);
+      updateSettings({ payment_methods: newList });
+      return newList;
+    });
+  };
+
+  const addGoal = async (goal: FinancialGoal) => {
+    if (!user) return;
+    const initialLogs: GoalContribution[] = [];
+    const now = new Date().toISOString();
+    if (goal.currentAmount > 0) {
+      initialLogs.push({ id: crypto.randomUUID(), goalId: goal.id, amount: goal.currentAmount, note: 'Starting Balance', date: now });
+    }
+    setGoals(prev => [...prev, { ...goal, contributions: initialLogs }]);
+    const dbPayload = { id: goal.id, user_id: user.id, name: goal.name, target_amount: goal.targetAmount, current_amount: goal.currentAmount, deadline: goal.deadline, color: goal.color };
+    await supabase.from('goals').insert(dbPayload);
+    if (initialLogs.length > 0) {
+      await supabase.from('goal_logs').insert({ id: initialLogs[0].id, goal_id: goal.id, user_id: user.id, amount: initialLogs[0].amount, note: initialLogs[0].note, created_at: initialLogs[0].date });
+    }
+  };
+
+  const updateGoal = async (updated: FinancialGoal) => {
+    setGoals(prev => prev.map(g => g.id === updated.id ? { ...updated, contributions: g.contributions } : g));
+    const dbPayload = { name: updated.name, target_amount: updated.targetAmount, current_amount: updated.currentAmount, deadline: updated.deadline, color: updated.color };
+    await supabase.from('goals').update(dbPayload).eq('id', updated.id);
+  };
+
+  const addGoalContribution = async (goalId: string, amount: number, note?: string) => {
+    if (!user) return;
+    const newLogId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    let updatedGoalTotal = 0;
+    setGoals(prev => prev.map(g => {
+      if (g.id === goalId) {
+        const newContribution: GoalContribution = { id: newLogId, goalId, amount, note, date: now };
+        updatedGoalTotal = g.currentAmount + amount;
+        return { ...g, currentAmount: updatedGoalTotal, contributions: [newContribution, ...(g.contributions || [])] };
+      }
+      return g;
+    }));
+    await supabase.from('goals').update({ current_amount: updatedGoalTotal }).eq('id', goalId);
+    await supabase.from('goal_logs').insert({ id: newLogId, goal_id: goalId, user_id: user.id, amount: amount, note: note, created_at: now });
+  };
+
+  const deleteGoalContribution = async (goalId: string, logId: string) => {
+    if (!user) return;
+    let updatedGoalTotal = 0;
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+    const log = goal.contributions?.find(c => c.id === logId);
+    if (!log) return;
+    updatedGoalTotal = goal.currentAmount - log.amount;
+    setGoals(prev => prev.map(g => {
+      if (g.id === goalId) {
+        return { ...g, currentAmount: updatedGoalTotal, contributions: g.contributions?.filter(c => c.id !== logId) || [] };
+      }
+      return g;
+    }));
+    await supabase.from('goals').update({ current_amount: updatedGoalTotal }).eq('id', goalId);
+    await supabase.from('goal_logs').delete().eq('id', logId);
+  };
+
+  const deleteGoal = async (id: string) => {
+    setGoals(prev => prev.filter(g => g.id !== id));
+    await supabase.from('goals').delete().eq('id', id);
+  };
+
+  const resetData = async () => {
+    if (confirm("Are you sure? This will delete ALL your data permanently.")) {
+      setTransactions([]);
+      setGoals([]);
+      setCategories(DEFAULT_CATEGORIES);
+      setPaymentMethods(DEFAULT_PAYMENT_METHODS);
+      await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
+      await supabase.from('goals').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
+      await supabase.from('goal_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (settingsId) {
+        await supabase.from('settings').update({ income_categories: DEFAULT_CATEGORIES.income, expense_categories: DEFAULT_CATEGORIES.expense, payment_methods: DEFAULT_PAYMENT_METHODS, theme: 'light', currency: '$' }).eq('id', settingsId);
+      }
+    }
+  };
 
   return (
     <AppContext.Provider value={{ 
