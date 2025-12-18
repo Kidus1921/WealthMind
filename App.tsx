@@ -1,14 +1,14 @@
 
 import React, { useState } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
-import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
-import { TransactionList } from './components/TransactionList';
-import { Reports } from './components/Reports';
-import { AiAssistant } from './components/AiAssistant';
-import { Settings } from './components/Settings';
-import { Goals } from './components/Goals';
-import { Auth } from './components/Auth';
+import { AppProvider, useApp } from './context/AppContext.tsx';
+import { Layout } from './components/Layout.tsx';
+import { Dashboard } from './components/Dashboard.tsx';
+import { TransactionList } from './components/TransactionList.tsx';
+import { Reports } from './components/Reports.tsx';
+import { AiAssistant } from './components/AiAssistant.tsx';
+import { Settings } from './components/Settings.tsx';
+import { Goals } from './components/Goals.tsx';
+import { Auth } from './components/Auth.tsx';
 
 const MainApp: React.FC = () => {
   const { user } = useApp();

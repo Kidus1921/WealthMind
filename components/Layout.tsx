@@ -63,6 +63,7 @@ create table if not exists public.transactions (
   is_recurring boolean default false,
   recurrence_frequency text,
   next_occurrence timestamp with time zone,
+  reference_id text,
   created_at timestamp with time zone default now()
 );
 
@@ -73,6 +74,16 @@ create table if not exists public.goals (
   current_amount numeric default 0,
   deadline timestamp with time zone,
   color text
+);
+
+-- New Table for Goal Logs (Money History)
+create table if not exists public.goal_logs (
+  id uuid primary key default gen_random_uuid(),
+  goal_id uuid references public.goals(id) on delete cascade,
+  user_id uuid references auth.users(id),
+  amount numeric not null,
+  note text,
+  created_at timestamp with time zone default now()
 );
 
 create table if not exists public.settings (
@@ -91,11 +102,13 @@ create table if not exists public.chat_history (
   created_at timestamp with time zone default now()
 );
 
--- 2. Add 'user_id' column to tables if it's missing (Migration for existing tables)
--- This fixes the "column user_id does not exist" error.
+-- 2. Add columns to tables if they're missing (Migrations)
 
 alter table public.transactions 
   add column if not exists user_id uuid references auth.users default auth.uid();
+  
+alter table public.transactions
+  add column if not exists reference_id text;
 
 alter table public.goals 
   add column if not exists user_id uuid references auth.users default auth.uid();
@@ -110,10 +123,11 @@ alter table public.chat_history
 
 alter table public.transactions enable row level security;
 alter table public.goals enable row level security;
+alter table public.goal_logs enable row level security;
 alter table public.settings enable row level security;
 alter table public.chat_history enable row level security;
 
--- 4. Policies (Drop first to avoid duplication errors, then recreate)
+-- 4. Policies
 
 -- Transactions
 drop policy if exists "Users can view their own transactions" on public.transactions;
@@ -140,6 +154,13 @@ create policy "Users can update their own goals" on public.goals for update usin
 
 drop policy if exists "Users can delete their own goals" on public.goals;
 create policy "Users can delete their own goals" on public.goals for delete using (auth.uid() = user_id);
+
+-- Goal Logs
+drop policy if exists "Users can view their own goal logs" on public.goal_logs;
+create policy "Users can view their own goal logs" on public.goal_logs for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own goal logs" on public.goal_logs;
+create policy "Users can insert their own goal logs" on public.goal_logs for insert with check (auth.uid() = user_id);
 
 -- Settings
 drop policy if exists "Users can view their own settings" on public.settings;

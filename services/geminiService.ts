@@ -59,22 +59,27 @@ export const analyzeFinancialDocument = async (file: File, availableCategories: 
         const filePart = await fileToGenerativePart(file);
         
         const categoriesStr = availableCategories.join(", ");
-        const modelId = "gemini-2.5-flash"; // 2.5 Flash supports multimodal (images/pdf)
+        // Using gemini-3-flash-preview for multimodal extraction as per guidelines
+        const modelId = "gemini-3-flash-preview"; 
         
         const prompt = `
         Analyze this financial document (receipt, invoice, or bank statement). 
-        Extract the key transaction details into a JSON object.
+        Extract the key transaction details.
         
-        Rules:
-        1. Extract the total Amount (number).
-        2. Identify the Vendor/Payee as the Description.
-        3. Extract the Date in ISO YYYY-MM-DD format.
-        4. Infer the Category from this list: [${categoriesStr}]. If unclear, use "Other".
-        5. Determine if it is 'income' or 'expense'.
-        6. Infer the Payment Method (Cash, Card, Transfer, etc).
-        7. Provide a 'confidence' score (0-1) based on legibility.
+        For the following fields, provide the extracted value AND a confidence score (0.0 to 1.0) reflecting legibility and certainty.
         
-        If the document is not readable or not a financial document, return null values.
+        1. Amount (number).
+        2. Description (Vendor/Payee name).
+        3. Date (ISO YYYY-MM-DD).
+        4. Category (infer from list: [${categoriesStr}] or use "Other").
+        5. Reference ID (Invoice Number, Transaction ID, Receipt Number).
+        
+        Also extract:
+        6. Type ('income' or 'expense').
+        7. Payment Method.
+        8. Overall document confidence.
+        
+        If a field is missing or unreadable, return null for the value and 0 for confidence.
         `;
 
         const response = await ai.models.generateContent({
@@ -91,12 +96,23 @@ export const analyzeFinancialDocument = async (file: File, availableCategories: 
                     type: Type.OBJECT,
                     properties: {
                         amount: { type: Type.NUMBER },
-                        type: { type: Type.STRING, enum: ["income", "expense"] },
-                        category: { type: Type.STRING },
+                        amountConfidence: { type: Type.NUMBER },
+                        
                         description: { type: Type.STRING },
+                        descriptionConfidence: { type: Type.NUMBER },
+                        
                         date: { type: Type.STRING },
+                        dateConfidence: { type: Type.NUMBER },
+                        
+                        category: { type: Type.STRING },
+                        categoryConfidence: { type: Type.NUMBER },
+                        
+                        referenceId: { type: Type.STRING },
+                        referenceIdConfidence: { type: Type.NUMBER },
+                        
+                        type: { type: Type.STRING, enum: ["income", "expense"] },
                         paymentMethod: { type: Type.STRING },
-                        confidence: { type: Type.NUMBER }
+                        confidence: { type: Type.NUMBER } // Overall confidence
                     }
                 }
             }
@@ -116,7 +132,8 @@ export const autoCategorizeTransaction = async (description: string, expenseCate
   if (!checkRateLimit()) return null;
 
   try {
-    const modelId = "gemini-2.5-flash";
+    // Using gemini-3-flash-preview for basic text tasks
+    const modelId = "gemini-3-flash-preview";
     const categoriesString = expenseCategories.join(", ");
     
     const prompt = `Analyze this transaction description: "${description}". 
@@ -172,7 +189,8 @@ export const generateFinancialInsights = async (transactions: Transaction[]) => 
       type: t.type
     }));
 
-    const modelId = "gemini-2.5-flash";
+    // Using gemini-3-flash-preview for analysis tasks
+    const modelId = "gemini-3-flash-preview";
     const prompt = `You are a financial advisor. Analyze these recent transactions: ${JSON.stringify(recent)}.
     Provide 3 short, actionable insights or observations. 
     1. A spending trend.
@@ -215,7 +233,8 @@ export const chatWithData = async (query: string, transactions: Transaction[]) =
       `${t.date.split('T')[0]}: ${t.type} of $${t.amount} for ${t.category} (${t.description})`
     ).join('\n');
 
-    const modelId = "gemini-2.5-flash";
+    // Using gemini-3-flash-preview for chat-based extraction and reasoning
+    const modelId = "gemini-3-flash-preview";
     const prompt = `Context: User's financial transaction history:\n${summary}\n\nUser Question: "${query}"\n\n
     Answer the user's question accurately based on the data provided. 
     If calculating totals, be precise. 
