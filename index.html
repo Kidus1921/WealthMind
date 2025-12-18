@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -25,6 +26,20 @@
       body {
         font-family: 'Inter', sans-serif;
       }
+      /* Custom scrollbar for better aesthetics */
+      .scrollbar-thin::-webkit-scrollbar {
+        width: 6px;
+      }
+      .scrollbar-thin::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+      }
+      .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: #334155;
+      }
     </style>
   <script type="importmap">
 {
@@ -42,5 +57,7 @@
 </head>
   <body class="bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
     <div id="root"></div>
+    <!-- Entry point for the application -->
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>

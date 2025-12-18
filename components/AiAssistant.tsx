@@ -46,11 +46,11 @@ export const AiAssistant: React.FC = () => {
           .order('last_message_at', { ascending: false });
         
         if (error) {
-          console.error("Session load error detail:", error.message || error);
+          console.error("Session load error:", error);
           if (error.code === '42P01') {
             setErrorState("Chat tables not found. Please click 'DB Schema' in the sidebar and run the SQL script.");
           } else {
-            setErrorState(`Database error: ${error.message || "Failed to connect"}`);
+            setErrorState(`Database error: ${error.message || "Unknown error"}`);
           }
           throw error;
         }
@@ -64,7 +64,7 @@ export const AiAssistant: React.FC = () => {
           })));
         }
       } catch (err: any) {
-        // Log handled above
+        console.error("Caught session fetch error:", err);
       } finally {
         setLoadingSessions(false);
       }
@@ -87,7 +87,7 @@ export const AiAssistant: React.FC = () => {
           .order('created_at', { ascending: true });
         
         if (error) {
-          console.error("Message load error detail:", error.message || error);
+          console.error("Message load error detail:", error);
           throw error;
         }
 
@@ -126,7 +126,7 @@ export const AiAssistant: React.FC = () => {
         .single();
       
       if (error) {
-        console.error("Session creation error detail:", error.message || error);
+        console.error("Session creation error:", error);
         throw error;
       }
 
@@ -144,7 +144,7 @@ export const AiAssistant: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setErrorState(`Failed to start session: ${err.message || "Unknown error"}. Check RLS policies.`);
+      setErrorState(`Failed to start session: ${err.message || "Check your database connection."}`);
     }
   };
 
@@ -157,7 +157,7 @@ export const AiAssistant: React.FC = () => {
       setSessions(sessions.filter(s => s.id !== sessionId));
       if (activeSession?.id === sessionId) setActiveSession(null);
     } catch (err: any) {
-      console.error("Session delete error detail:", err.message || err);
+      console.error("Session delete error:", err);
     }
   };
 
@@ -181,7 +181,7 @@ export const AiAssistant: React.FC = () => {
       }).select().single();
 
       if (userMsgError) {
-        console.error("Failed to save user message:", userMsgError.message || userMsgError);
+        console.error("User message insert error:", userMsgError);
         throw userMsgError;
       }
 
@@ -199,9 +199,10 @@ export const AiAssistant: React.FC = () => {
       const now = new Date().toISOString();
       await supabase.from('chat_sessions').update({ last_message_at: now }).eq('id', sId);
       
-      // Update session order in UI locally for immediate feedback
-      setSessions(prev => prev.map(s => s.id === sId ? { ...s, lastMessageAt: now } : s)
-        .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime())
+      // Update local sessions state to move current chat to top
+      setSessions(prev => 
+        prev.map(s => s.id === sId ? { ...s, lastMessageAt: now } : s)
+            .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime())
       );
 
       // 3. Get AI Response with Context
@@ -218,7 +219,10 @@ export const AiAssistant: React.FC = () => {
           insights: aiResult.insights
         }).select().single();
 
-        if (aiMsgError) throw aiMsgError;
+        if (aiMsgError) {
+          console.error("AI message insert error:", aiMsgError);
+          throw aiMsgError;
+        }
 
         if (aiMsgData) {
           setMessages(prev => [...prev, {
@@ -231,14 +235,14 @@ export const AiAssistant: React.FC = () => {
           }]);
         }
       } else {
-        throw new Error("AI provider returned no data. Check your API key or usage limit.");
+        throw new Error("AI provider returned an empty response. Check API key status.");
       }
     } catch (err: any) {
-      console.error("Chat action failed:", err.message || err);
-      const isSqlError = err.code === '42P01' || err.code === '42703' || err.message?.includes('not found') || err.message?.includes('RLS') || err.message?.includes('exist');
+      console.error("Chat action failed detail:", err);
+      const isSqlError = err.code === '42P01' || err.code === '42703' || err.message?.includes('not found') || err.message?.includes('RLS') || err.message?.includes('session_id');
       const errorMsg = isSqlError 
-        ? "Database access blocked. Ensure you ran the updated SQL setup in 'DB Schema' and that Row Level Security (RLS) policies are active."
-        : `Analysis failed: ${err.message || "Unknown error"}`;
+        ? "Database column mismatch or access denied. Ensure you ran the updated SQL script in 'DB Schema' and enabled Row Level Security."
+        : `Request failed: ${err.message || "Unknown error"}`;
       
       setMessages(prev => [...prev, {
         id: Math.random().toString(),
@@ -354,17 +358,11 @@ export const AiAssistant: React.FC = () => {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth scrollbar-thin">
           {errorState && (
-            <div className="p-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-2xl text-xs font-bold border border-rose-100 dark:border-rose-900/30 flex flex-col gap-2 animate-in fade-in duration-300">
+            <div className="p-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-2xl text-xs font-bold border border-rose-100 dark:border-rose-900/30 flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <AlertTriangle size={16} /> <span>System Notification</span>
+                <AlertTriangle size={16} /> <span>Application Notice</span>
               </div>
               <p className="font-medium opacity-80">{errorState}</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-2 text-[10px] uppercase tracking-widest bg-rose-600 text-white px-3 py-1.5 rounded-lg w-fit hover:bg-rose-700 transition-colors"
-              >
-                Retry Connection
-              </button>
             </div>
           )}
           
