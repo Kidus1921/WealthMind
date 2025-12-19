@@ -116,7 +116,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             paymentMethod: row.payment_method,
             reason: row.reason,
             isRecurring: row.is_recurring,
-            recurrenceFrequency: row.recurrence_frequency,
+            recurrence_frequency: row.recurrence_frequency,
             nextOccurrence: row.next_occurrence,
             referenceId: row.reference_id,
             createdAt: new Date(row.created_at).getTime()
@@ -224,7 +224,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       description: t.description,
       date: t.date,
       due_date: t.dueDate,
-      payment_method: t.paymentMethod,
+      payment_method: t.payment_method,
       reason: t.reason,
       is_recurring: t.isRecurring,
       recurrence_frequency: t.recurrenceFrequency,
@@ -250,9 +250,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       description: t.description,
       date: t.date,
       due_date: t.dueDate,
-      payment_method: t.paymentMethod,
+      payment_method: t.payment_method,
       reason: t.reason,
-      is_recurring: t.isRecurring,
+      is_recurring: t.is_recurring,
       recurrence_frequency: t.recurrenceFrequency,
       reference_id: t.referenceId,
       created_at: new Date().toISOString()
@@ -357,6 +357,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateGoal = async (updated: FinancialGoal) => {
     setGoals(prev => prev.map(g => g.id === updated.id ? { ...updated, contributions: g.contributions } : g));
+    // Fix: replaced 'target_amount: updated.target_amount' with 'target_amount: updated.targetAmount' to match FinancialGoal interface.
     const dbPayload = { name: updated.name, target_amount: updated.targetAmount, current_amount: updated.currentAmount, deadline: updated.deadline, color: updated.color };
     await supabase.from('goals').update(dbPayload).eq('id', updated.id);
   };

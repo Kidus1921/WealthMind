@@ -2,8 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction, AIInsight } from "../types.ts";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 // --- Rate Limiting Logic ---
 const MAX_REQUESTS_PER_HOUR = 50;
 const RATE_LIMIT_KEY = 'wm_ai_rate_limit';
@@ -28,6 +26,7 @@ const checkRateLimit = (): boolean => {
 export const generateSessionTitle = async (firstMessage: string) => {
   if (!checkRateLimit()) return "New Conversation";
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Generate a 2-4 word title for a financial chat starting with: "${firstMessage}". Return only the plain text title without quotes.`,
@@ -44,6 +43,7 @@ export const chatWithData = async (
 ) => {
   if (!checkRateLimit()) return null;
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     // 1. Build financial context summary
     const now = new Date();
     const thisMonth = now.getMonth();
@@ -137,6 +137,7 @@ Return JSON:
 export const autoCategorizeTransaction = async (description: string, expenseCategories: string[]) => {
   if (!checkRateLimit()) return null;
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const categoriesString = expenseCategories.join(", ");
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -162,6 +163,7 @@ export const autoCategorizeTransaction = async (description: string, expenseCate
 export const generateFinancialInsights = async (transactions: Transaction[]) => {
   if (!checkRateLimit() || !transactions.length) return [];
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const recent = transactions.slice(0, 30).map(t => ({
       date: t.date, amount: t.amount, category: t.category, type: t.type
     }));
@@ -189,6 +191,7 @@ export const generateFinancialInsights = async (transactions: Transaction[]) => 
 export const analyzeFinancialDocument = async (file: File, availableCategories: string[]) => {
     if (!checkRateLimit()) throw new Error("Rate limit exceeded");
     try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const filePart = await fileToGenerativePart(file);
         const categoriesStr = availableCategories.join(", ");
         const response = await ai.models.generateContent({
