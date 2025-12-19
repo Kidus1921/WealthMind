@@ -1,11 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { FinancialGoal, GoalContribution } from '../types.ts';
 import { 
   Target, Plus, Edit2, Trash2, Check, TrendingUp, Calendar, 
   DollarSign, X, Filter, ArrowUpDown, Clock, ChevronRight, 
-  History, MessageCircle, MoreVertical, Loader2, AlertTriangle 
+  History, MessageCircle, MoreVertical, Loader2, AlertTriangle, ArrowDown, ArrowUp, PiggyBank
 } from 'lucide-react';
 
 const COLORS = [
@@ -13,11 +13,11 @@ const COLORS = [
   'bg-orange-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-rose-500'
 ];
 
-type FilterStatus = 'all' | 'active' | 'completed' | 'overdue';
+type FilterStatus = 'all' | 'active' | 'completed' | 'overdue' | 'deposit';
 type SortOption = 'progress' | 'amount' | 'deadline';
 
 export const Goals: React.FC = () => {
-  const { goals, addGoal, updateGoal, deleteGoal, addGoalContribution, deleteGoalContribution, currency } = useApp();
+  const { goals, addGoal, updateGoal, deleteGoal, addGoalContribution, deleteGoalContribution, currency, focusEntity, setFocusEntity } = useApp();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
@@ -26,6 +26,18 @@ export const Goals: React.FC = () => {
   
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [sortBy, setSortBy] = useState<SortOption>('progress');
+
+  // Deep Link Focus Effect
+  useEffect(() => {
+    if (focusEntity && focusEntity.type === 'goal') {
+      const found = goals.find(g => g.id === focusEntity.id);
+      if (found) {
+        setViewingGoal(found);
+        setIsDetailOpen(true);
+      }
+      setFocusEntity(null);
+    }
+  }, [focusEntity, goals]);
 
   const totalTarget = goals.reduce((acc, g) => acc + g.targetAmount, 0);
   const totalSaved = goals.reduce((acc, g) => acc + g.currentAmount, 0);
@@ -36,11 +48,12 @@ export const Goals: React.FC = () => {
     now.setHours(0, 0, 0, 0);
 
     let result = goals.filter(g => {
-      const progress = (g.currentAmount / g.targetAmount);
-      const isCompleted = progress >= 1;
+      const isDepositOnly = g.targetAmount === 0;
+      const progress = g.targetAmount > 0 ? (g.currentAmount / g.targetAmount) : 0;
+      const isCompleted = g.targetAmount > 0 && progress >= 1;
       
       let isOverdue = false;
-      if (g.deadline && !isCompleted) {
+      if (g.deadline && !isCompleted && !isDepositOnly) {
         const deadlineDate = new Date(g.deadline);
         deadlineDate.setHours(0, 0, 0, 0);
         isOverdue = deadlineDate < now;
@@ -48,14 +61,15 @@ export const Goals: React.FC = () => {
 
       if (filterStatus === 'completed') return isCompleted;
       if (filterStatus === 'overdue') return isOverdue;
-      if (filterStatus === 'active') return !isCompleted && !isOverdue;
+      if (filterStatus === 'deposit') return isDepositOnly;
+      if (filterStatus === 'active') return !isCompleted && !isOverdue && !isDepositOnly;
       return true;
     });
 
     result.sort((a, b) => {
       if (sortBy === 'progress') {
-        const progA = a.currentAmount / a.targetAmount;
-        const progB = b.currentAmount / b.targetAmount;
+        const progA = a.targetAmount > 0 ? a.currentAmount / a.targetAmount : 0;
+        const progB = b.targetAmount > 0 ? b.currentAmount / b.targetAmount : 0;
         return progB - progA;
       }
       if (sortBy === 'amount') return b.targetAmount - a.targetAmount;
@@ -97,7 +111,7 @@ export const Goals: React.FC = () => {
 
   const handleQuickAdd = (e: React.MouseEvent, goal: FinancialGoal, amount: number) => {
     e.stopPropagation();
-    addGoalContribution(goal.id, amount, 'Quick Add');
+    addGoalContribution(goal.id, amount, 'Quick Deposit');
   };
 
   return (
@@ -108,7 +122,7 @@ export const Goals: React.FC = () => {
             <Target className="text-primary" />
             Financial Goals
           </h2>
-          <p className="text-gray-500 text-sm mt-1">Track your savings journey</p>
+          <p className="text-gray-500 text-sm mt-1">Track savings or manage deposit pots</p>
         </div>
         <button
           onClick={() => openForm()}
@@ -122,21 +136,21 @@ export const Goals: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
            <div className="flex justify-between items-center mb-2">
-             <span className="text-gray-500 text-sm font-medium">Total Saved</span>
-             <DollarSign className="w-5 h-5 text-emerald-500" />
+             <span className="text-gray-500 text-sm font-medium">Total Balance</span>
+             <PiggyBank className="w-5 h-5 text-emerald-500" />
            </div>
            <p className="text-3xl font-bold text-gray-800 dark:text-white">{currency}{totalSaved.toLocaleString()}</p>
         </div>
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
            <div className="flex justify-between items-center mb-2">
-             <span className="text-gray-500 text-sm font-medium">Total Target</span>
+             <span className="text-gray-500 text-sm font-medium">Active Targets</span>
              <Target className="w-5 h-5 text-blue-500" />
            </div>
            <p className="text-3xl font-bold text-gray-800 dark:text-white">{currency}{totalTarget.toLocaleString()}</p>
         </div>
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
            <div className="flex justify-between items-center mb-2">
-             <span className="text-gray-500 text-sm font-medium">Overall Progress</span>
+             <span className="text-gray-500 text-sm font-medium">Goal Progression</span>
              <TrendingUp className="w-5 h-5 text-purple-500" />
            </div>
            <p className="text-3xl font-bold text-gray-800 dark:text-white">{overallProgress.toFixed(1)}%</p>
@@ -150,7 +164,7 @@ export const Goals: React.FC = () => {
         <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
           <Filter className="w-4 h-4 text-gray-400 shrink-0" />
           <div className="flex bg-gray-100 dark:bg-slate-700 p-1 rounded-lg">
-             {(['all', 'active', 'completed', 'overdue'] as const).map((status) => (
+             {(['all', 'active', 'deposit', 'completed', 'overdue'] as const).map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
@@ -160,7 +174,7 @@ export const Goals: React.FC = () => {
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                   }`}
                 >
-                  {status}
+                  {status === 'deposit' ? 'Pots' : status}
                 </button>
              ))}
           </div>
@@ -182,12 +196,13 @@ export const Goals: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {processedGoals.map(goal => {
-          const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
-          const isCompleted = progress >= 100;
+          const isDepositOnly = goal.targetAmount === 0;
+          const progress = isDepositOnly ? 0 : Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+          const isCompleted = !isDepositOnly && progress >= 100;
           
           let daysLeft = null;
           let isOverdue = false;
-          if (goal.deadline) {
+          if (goal.deadline && !isDepositOnly) {
             const deadline = new Date(goal.deadline);
             const now = new Date();
             now.setHours(0,0,0,0);
@@ -206,8 +221,11 @@ export const Goals: React.FC = () => {
               <div className="p-6 flex-1 flex flex-col">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="font-bold text-lg text-gray-800 dark:text-white">{goal.name}</h3>
-                    {goal.deadline && (
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-lg text-gray-800 dark:text-white">{goal.name}</h3>
+                        {isDepositOnly && <PiggyBank size={16} className="text-emerald-500" />}
+                    </div>
+                    {goal.deadline && !isDepositOnly && (
                       <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                         <Calendar size={12} />
                         {new Date(goal.deadline).toLocaleDateString()} 
@@ -215,6 +233,7 @@ export const Goals: React.FC = () => {
                         {isOverdue && <span className="text-rose-500 font-bold ml-1 flex items-center gap-0.5"><Clock size={10}/> Overdue</span>}
                       </p>
                     )}
+                    {isDepositOnly && <p className="text-[10px] font-black uppercase text-gray-400 mt-1">Savings Pot (No Target)</p>}
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={(e) => openForm(e, goal)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-500">
@@ -226,28 +245,32 @@ export const Goals: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-500 font-medium">Progress</span>
-                    <span className="font-semibold text-gray-800 dark:text-white">{progress.toFixed(0)}%</span>
+                {!isDepositOnly && (
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-500 font-medium">Progress</span>
+                      <span className="font-semibold text-gray-800 dark:text-white">{progress.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3">
+                      <div 
+                        className={`h-3 rounded-full transition-all duration-1000 ${goal.color}`} 
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3">
-                    <div 
-                      className={`h-3 rounded-full transition-all duration-1000 ${goal.color}`} 
-                      style={{ width: `${progress}%` }}
-                    ></div>
-                  </div>
-                </div>
+                )}
 
                 <div className="flex justify-between items-end mt-auto">
                    <div>
-                     <p className="text-xs text-gray-500 font-medium">Saved</p>
+                     <p className="text-xs text-gray-500 font-medium">Available Balance</p>
                      <p className="font-bold text-gray-800 dark:text-white text-lg">{currency}{goal.currentAmount.toLocaleString()}</p>
                    </div>
-                   <div className="text-right">
-                     <p className="text-xs text-gray-500 font-medium">Target</p>
-                     <p className="font-medium text-gray-600 dark:text-gray-300">{currency}{goal.targetAmount.toLocaleString()}</p>
-                   </div>
+                   {!isDepositOnly && (
+                     <div className="text-right">
+                       <p className="text-xs text-gray-500 font-medium">Target</p>
+                       <p className="font-medium text-gray-600 dark:text-gray-300">{currency}{goal.targetAmount.toLocaleString()}</p>
+                     </div>
+                   )}
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-between items-center">
@@ -277,7 +300,7 @@ export const Goals: React.FC = () => {
         {processedGoals.length === 0 && (
           <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-400 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700">
             <Target size={48} className="mb-4 opacity-50" />
-            <p className="text-lg font-medium">No goals found.</p>
+            <p className="text-lg font-medium">No goals match your filters.</p>
           </div>
         )}
       </div>
@@ -308,7 +331,7 @@ export const Goals: React.FC = () => {
             </div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Delete Goal?</h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-              This action cannot be undone.
+              This action cannot be undone. All contribution history for this goal will be lost.
             </p>
             <div className="flex gap-3">
               <button
@@ -340,14 +363,16 @@ const GoalDetailModal: React.FC<{
   const { addGoalContribution, deleteGoalContribution, currency } = useApp();
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const [submitting, setSubmitting] = useState(false);
   const [confirmDeleteLogId, setConfirmDeleteLogId] = useState<string | null>(null);
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || isNaN(Number(amount))) return;
     setSubmitting(true);
-    await addGoalContribution(goal.id, Number(amount), note);
+    const finalAmount = mode === 'deposit' ? Number(amount) : -Number(amount);
+    await addGoalContribution(goal.id, finalAmount, note);
     setAmount('');
     setNote('');
     setSubmitting(false);
@@ -360,7 +385,8 @@ const GoalDetailModal: React.FC<{
     }
   };
 
-  const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+  const isDepositOnly = goal.targetAmount === 0;
+  const progress = isDepositOnly ? 0 : Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
@@ -375,23 +401,32 @@ const GoalDetailModal: React.FC<{
             </div>
             
             <div className="space-y-6">
-              <div>
-                <p className="text-white/70 text-sm mb-1 uppercase tracking-wider font-semibold">Goal Progress</p>
-                <p className="text-4xl font-extrabold">{progress.toFixed(0)}%</p>
-                <div className="w-full bg-white/30 rounded-full h-2.5 mt-2">
-                  <div className="bg-white h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+              {!isDepositOnly ? (
+                <div>
+                    <p className="text-white/70 text-sm mb-1 uppercase tracking-wider font-semibold">Goal Progress</p>
+                    <p className="text-4xl font-extrabold">{progress.toFixed(0)}%</p>
+                    <div className="w-full bg-white/30 rounded-full h-2.5 mt-2">
+                    <div className="bg-white h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                    </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-6 border-2 border-white/20 rounded-3xl bg-white/10 backdrop-blur-sm">
+                    <PiggyBank size={48} className="mb-2" />
+                    <p className="text-white font-black uppercase tracking-widest text-xs">Savings Pot</p>
+                </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
-                <div>
-                   <p className="text-white/70 text-[10px] uppercase font-bold">Current</p>
-                   <p className="text-xl font-bold">{currency}{goal.currentAmount.toLocaleString()}</p>
+              <div className={`grid ${isDepositOnly ? 'grid-cols-1' : 'grid-cols-2'} gap-4 pt-4 border-t border-white/20`}>
+                <div className={isDepositOnly ? 'text-center' : ''}>
+                   <p className="text-white/70 text-[10px] uppercase font-bold">{isDepositOnly ? 'Current Balance' : 'Saved'}</p>
+                   <p className={`${isDepositOnly ? 'text-4xl' : 'text-xl'} font-bold`}>{currency}{goal.currentAmount.toLocaleString()}</p>
                 </div>
-                <div>
-                   <p className="text-white/70 text-[10px] uppercase font-bold">Goal</p>
-                   <p className="text-xl font-bold">{currency}{goal.targetAmount.toLocaleString()}</p>
-                </div>
+                {!isDepositOnly && (
+                    <div>
+                    <p className="text-white/70 text-[10px] uppercase font-bold">Goal Target</p>
+                    <p className="text-xl font-bold">{currency}{goal.targetAmount.toLocaleString()}</p>
+                    </div>
+                )}
               </div>
             </div>
           </div>
@@ -414,9 +449,9 @@ const GoalDetailModal: React.FC<{
 
         <div className="flex-1 flex flex-col bg-gray-50 dark:bg-slate-900 overflow-hidden relative">
           <div className="p-6 border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800 flex justify-between items-center shrink-0">
-             <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 uppercase">
+             <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 uppercase text-sm tracking-widest">
                <History className="text-primary" size={20} />
-               History
+               Transaction Ledger
              </h3>
              <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors hidden md:block">
                <X size={24} className="text-gray-400" />
@@ -425,22 +460,28 @@ const GoalDetailModal: React.FC<{
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
-                <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4">Add Contribution</p>
-                <form onSubmit={handleAdd} className="space-y-4">
+                <div className="flex justify-between items-center mb-4">
+                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">New Transaction</p>
+                    <div className="flex p-1 bg-gray-100 dark:bg-slate-900 rounded-xl gap-1">
+                        <button type="button" onClick={() => setMode('deposit')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'deposit' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'}`}>Deposit</button>
+                        <button type="button" onClick={() => setMode('withdraw')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'withdraw' ? 'bg-rose-500 text-white shadow-sm' : 'text-gray-500'}`}>Withdraw</button>
+                    </div>
+                </div>
+                <form onSubmit={handleAction} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="relative">
                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                       <input type="number" required placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+                       <input type="number" required min="0.01" step="0.01" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
                     </div>
                     <div className="relative">
                        <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                       <input type="text" placeholder="Comment" value={note} onChange={e => setNote(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+                       <input type="text" placeholder="Note (Optional)" value={note} onChange={e => setNote(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
                     </div>
                   </div>
                   <div className="flex justify-end pt-2">
-                     <button type="submit" disabled={submitting || !amount} className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center gap-2 disabled:opacity-50">
-                        {submitting ? <Loader2 className="animate-spin" size={18}/> : <Check size={18}/>}
-                        Add Funds
+                     <button type="submit" disabled={submitting || !amount} className={`px-6 py-3 rounded-xl font-bold text-white transition-all flex items-center gap-2 disabled:opacity-50 ${mode === 'deposit' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'}`}>
+                        {submitting ? <Loader2 className="animate-spin" size={18}/> : mode === 'deposit' ? <ArrowDown size={18}/> : <ArrowUp size={18}/>}
+                        {mode === 'deposit' ? 'Add Funds' : 'Withdraw Funds'}
                      </button>
                   </div>
                 </form>
@@ -451,9 +492,13 @@ const GoalDetailModal: React.FC<{
                    goal.contributions.map(log => (
                       <div key={log.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 flex justify-between items-center group">
                          <div className="flex items-center gap-4">
-                            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20"><TrendingUp size={18} /></div>
+                            <div className={`p-2 rounded-lg ${log.amount >= 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20'}`}>
+                                {log.amount >= 0 ? <TrendingUp size={18} /> : <ArrowUp size={18} />}
+                            </div>
                             <div>
-                               <p className="font-bold text-gray-800 dark:text-white text-sm">+{currency}{log.amount.toLocaleString()}</p>
+                               <p className={`font-bold text-sm ${log.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                 {log.amount >= 0 ? '+' : ''}{currency}{log.amount.toLocaleString()}
+                               </p>
                                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
                                   <span>{new Date(log.date).toLocaleDateString()}</span>
                                   {log.note && (<span>• {log.note}</span>)}
@@ -465,7 +510,7 @@ const GoalDetailModal: React.FC<{
                    ))
                 ) : (
                    <div className="text-center py-12 text-gray-400">
-                      <p className="text-sm">No entries yet.</p>
+                      <p className="text-sm">No transaction history yet.</p>
                    </div>
                 )}
              </div>
@@ -474,10 +519,11 @@ const GoalDetailModal: React.FC<{
           {confirmDeleteLogId && (
             <div className="absolute inset-0 bg-white/95 dark:bg-slate-900/95 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-200 z-10">
                <AlertTriangle size={48} className="text-rose-500 mb-4" />
-               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete Log Entry?</h3>
+               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete History Entry?</h3>
+               <p className="text-sm text-gray-500 mb-6">Removing this entry will adjust the goal's current balance.</p>
                <div className="flex gap-4 w-full max-w-xs mt-6">
-                  <button onClick={() => setConfirmDeleteLogId(null)} className="flex-1 px-4 py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium">Cancel</button>
-                  <button onClick={handleConfirmDeleteLog} className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-xl font-medium">Delete</button>
+                  <button onClick={() => setConfirmDeleteLogId(null)} className="flex-1 px-4 py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium transition-colors">Cancel</button>
+                  <button onClick={handleConfirmDeleteLog} className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-xl font-medium hover:bg-rose-700 transition-colors shadow-lg shadow-rose-600/20">Confirm Delete</button>
                </div>
             </div>
           )}
@@ -495,6 +541,7 @@ interface FormProps {
 }
 
 const GoalForm: React.FC<FormProps> = ({ onClose, editGoal, addGoal, updateGoal }) => {
+  const [isDepositOnly, setIsDepositOnly] = useState(editGoal?.targetAmount === 0 || false);
   const [formData, setFormData] = useState<Partial<FinancialGoal>>(editGoal || {
     name: '',
     targetAmount: 0,
@@ -505,12 +552,13 @@ const GoalForm: React.FC<FormProps> = ({ onClose, editGoal, addGoal, updateGoal 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const target = isDepositOnly ? 0 : Number(formData.targetAmount);
     const goal: FinancialGoal = {
         id: editGoal?.id || crypto.randomUUID(),
         name: formData.name || 'Untitled Goal',
-        targetAmount: Number(formData.targetAmount),
+        targetAmount: target,
         currentAmount: Number(formData.currentAmount),
-        deadline: formData.deadline,
+        deadline: isDepositOnly ? undefined : formData.deadline,
         color: formData.color || COLORS[0]
     };
 
@@ -522,43 +570,60 @@ const GoalForm: React.FC<FormProps> = ({ onClose, editGoal, addGoal, updateGoal 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
       <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-            {editGoal ? 'Edit Goal' : 'Create Goal'}
+        <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+            {editGoal ? <Edit2 size={20} className="text-primary"/> : <Plus size={20} className="text-primary"/>}
+            {editGoal ? 'Edit' : 'Create'} Financial Objective
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Goal Name</label>
-            <input type="text" required placeholder="e.g. Save for a Car" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="flex p-1 bg-gray-100 dark:bg-slate-900 rounded-2xl gap-2">
+            <button type="button" onClick={() => setIsDepositOnly(false)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isDepositOnly ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-gray-500'}`}>Savings Goal</button>
+            <button type="button" onClick={() => setIsDepositOnly(true)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isDepositOnly ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-gray-500'}`}>Deposit Pot</button>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          <div>
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Objective Name</label>
+            <input type="text" required placeholder="e.g. Dream House, Rainy Day Pot" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all" />
+          </div>
+
+          <div className={`grid ${isDepositOnly ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
+             {!isDepositOnly && (
+                <div>
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Target Amount</label>
+                    <input type="number" required min="1" value={formData.targetAmount} onChange={e => setFormData({...formData, targetAmount: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+                </div>
+             )}
              <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Target Amount</label>
-                <input type="number" required min="1" value={formData.targetAmount} onChange={e => setFormData({...formData, targetAmount: Number(e.target.value)})} className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
-             </div>
-             <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Initial Saved</label>
-                <input type="number" min="0" value={formData.currentAmount} onChange={e => setFormData({...formData, currentAmount: Number(e.target.value)})} className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">{isDepositOnly ? 'Initial Balance' : 'Initial Saved'}</label>
+                <input type="number" min="0" value={formData.currentAmount} onChange={e => setFormData({...formData, currentAmount: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
              </div>
           </div>
+
+          {!isDepositOnly && (
+            <div>
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Deadline (Optional)</label>
+                <input type="date" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Target Date</label>
-            <input type="date" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
-          </div>
-          <div>
-             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Icon Color</label>
+             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Theme Color</label>
              <div className="flex gap-2 flex-wrap">
                 {COLORS.map(c => (
-                   <button key={c} type="button" onClick={() => setFormData({...formData, color: c})} className={`w-8 h-8 rounded-full ${c} ${formData.color === c ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-offset-slate-800' : ''}`} />
+                   <button key={c} type="button" onClick={() => setFormData({...formData, color: c})} className={`w-10 h-10 rounded-2xl ${c} ${formData.color === c ? 'ring-4 ring-offset-4 ring-primary dark:ring-offset-slate-800 scale-110' : ''} transition-all`} />
                 ))}
              </div>
           </div>
-          <div className="pt-6 flex gap-3">
-             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-gray-600 font-bold">Cancel</button>
-             <button type="submit" className="flex-2 px-4 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all">Save Goal</button>
+
+          <div className="pt-4 flex gap-3">
+             <button type="button" onClick={onClose} className="flex-1 px-4 py-4 text-gray-500 font-bold hover:text-gray-700 transition-colors">Cancel</button>
+             <button type="submit" className="flex-[2] px-4 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2">
+                <Check size={20}/>
+                Save Objective
+             </button>
           </div>
         </form>
       </div>

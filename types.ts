@@ -52,11 +52,12 @@ export interface GoalContribution {
 export interface FinancialGoal {
   id: string;
   name: string;
-  targetAmount: number;
+  targetAmount: number; // 0 indicates a deposit-style/savings pot (no target)
   currentAmount: number;
   deadline?: string; 
   color: string;
   contributions?: GoalContribution[];
+  isDepositOnly?: boolean; // explicit flag for goals without target
 }
 
 export interface CategoryState {

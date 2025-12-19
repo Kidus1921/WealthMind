@@ -5,6 +5,11 @@ import { supabase } from '../services/supabaseClient.ts';
 import { Loader2 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 
+interface FocusEntity {
+  type: 'transaction' | 'goal' | 'loan';
+  id: string;
+}
+
 interface AppContextProps {
   user: User | null;
   signOut: () => Promise<void>;
@@ -36,6 +41,9 @@ interface AppContextProps {
   addGoalContribution: (goalId: string, amount: number, note?: string) => Promise<void>;
   deleteGoalContribution: (goalId: string, logId: string) => Promise<void>;
 
+  focusEntity: FocusEntity | null;
+  setFocusEntity: (entity: FocusEntity | null) => void;
+
   resetData: () => void;
   loading: boolean;
 }
@@ -60,6 +68,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [categories, setCategories] = useState<CategoryState>(DEFAULT_CATEGORIES);
   const [paymentMethods, setPaymentMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
+  const [focusEntity, setFocusEntity] = useState<FocusEntity | null>(null);
   
   const [settingsId, setSettingsId] = useState<string | null>(null);
 
@@ -127,6 +136,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
              currentAmount: row.current_amount,
              deadline: row.deadline,
              color: row.color,
+             isDepositOnly: row.target_amount === 0,
              contributions: (row.goal_logs || []).map((log: any) => ({
                 id: log.id,
                 goalId: log.goal_id,
@@ -415,6 +425,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       categories, addCategory, deleteCategory,
       paymentMethods, addPaymentMethod, deletePaymentMethod,
       goals, addGoal, updateGoal, deleteGoal, addGoalContribution, deleteGoalContribution,
+      focusEntity, setFocusEntity,
       resetData, loading
     }}>
       {children}

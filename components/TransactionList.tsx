@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { TransactionForm } from './TransactionForm.tsx';
 import { SmartImportModal } from './SmartImportModal.tsx';
@@ -7,7 +7,7 @@ import { Transaction } from '../types.ts';
 import { Search, Filter, Trash2, Edit2, Plus, Sparkles, AlertTriangle, HandCoins, Clock, ChevronRight, X, User, ArrowUpRight, ArrowDownLeft, Info } from 'lucide-react';
 
 export const TransactionList: React.FC = () => {
-  const { transactions, deleteTransaction, currency } = useApp();
+  const { transactions, deleteTransaction, currency, focusEntity, setFocusEntity } = useApp();
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense' | 'loan'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -15,6 +15,17 @@ export const TransactionList: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>(undefined);
   const [viewingLoan, setViewingLoan] = useState<Transaction | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Deep Link Focus Effect
+  useEffect(() => {
+    if (focusEntity && focusEntity.type === 'loan') {
+      const found = transactions.find(t => t.id === focusEntity.id);
+      if (found) {
+        setViewingLoan(found);
+      }
+      setFocusEntity(null);
+    }
+  }, [focusEntity, transactions]);
 
   // Forced Repayment Shortcut
   const [repaymentPreset, setRepaymentPreset] = useState<Partial<Transaction> | null>(null);
@@ -109,7 +120,7 @@ export const TransactionList: React.FC = () => {
                    const isLoan = t.type === 'loan' || t.category === 'Loan Repayment';
                    const isInflow = t.type === 'income' || (t.type === 'loan' && t.loanType === 'borrowed');
                    return (
-                    <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors group">
+                    <tr key={t.id} className={`hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors group ${focusEntity?.id === t.id ? 'bg-primary/5 ring-1 ring-primary' : ''}`}>
                       <td className="p-4 text-sm text-gray-600 dark:text-gray-300">{new Date(t.date).toLocaleDateString()}</td>
                       <td className="p-4">
                         <div className="flex flex-col">
@@ -189,7 +200,7 @@ export const TransactionList: React.FC = () => {
 
       {confirmDeleteId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center border border-gray-100 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-sm w-full p-6 text-center border border-gray-100 dark:border-slate-700">
             <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle size={32} /></div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Delete Record?</h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Are you sure? This action cannot be undone.</p>
