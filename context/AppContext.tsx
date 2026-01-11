@@ -76,13 +76,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [focusEntity, setFocusEntity] = useState<FocusEntity | null>(null);
-  const [settingsId, setSettingsId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Initial session check
+    const checkInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
-      if (!session?.user) setLoading(false);
-    });
+      setLoading(false);
+
+      // Clean up hash if it exists to keep URL tidy after successful login
+      if (window.location.hash && session?.user) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    };
+
+    checkInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
@@ -90,8 +98,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setTransactions([]);
         setGoals([]);
         setTrades([]);
-        setLoading(false);
       }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -101,7 +109,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!user) return;
 
     const fetchData = async () => {
-      setLoading(true);
       try {
         const { data: txnData } = await supabase.from('transactions').select('*').order('date', { ascending: false });
         if (txnData) {
@@ -146,7 +153,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { data: settingsData } = await supabase.from('settings').select('*').limit(1);
         if (settingsData && settingsData.length > 0) {
            const row = settingsData[0];
-           setSettingsId(row.id);
            setCurrencyState(row.currency || '$');
         }
 
@@ -168,8 +174,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       } catch (error) {
         console.error("Data load error:", error);
-      } finally {
-        setLoading(false);
       }
     };
     fetchData();
@@ -190,7 +194,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addTransaction = async (t: Transaction) => {
     if (!user) return;
     setTransactions(prev => [t, ...prev]);
-    // Fixed: changed t.payment_method to t.paymentMethod
     await supabase.from('transactions').insert({
       id: t.id, user_id: user.id, amount: t.amount, type: t.type,
       loan_type: t.loanType, subtype: t.subtype, counterparty: t.counterparty,
@@ -258,7 +261,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addGoal = async (goal: FinancialGoal) => {
     if (!user) return;
     setGoals(prev => [...prev, { ...goal, contributions: [] }]);
-    // Fixed: changed goal.target_amount to goal.targetAmount and goal.current_amount to goal.currentAmount
     await supabase.from('goals').insert({ 
       id: goal.id, 
       user_id: user.id, 
