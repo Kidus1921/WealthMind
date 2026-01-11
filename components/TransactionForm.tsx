@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Transaction, TransactionType, LoanKind, TransactionSubtype } from '../types.ts';
 import { autoCategorizeTransaction } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
-import { Sparkles, Loader2, Check, HandCoins, Info, Calendar, User, DollarSign, X, Clock, Wallet } from 'lucide-react';
+import { Sparkles, Loader2, Check, HandCoins, Info, Calendar, User, DollarSign, X, Clock, Wallet, LayoutGrid } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
@@ -57,32 +57,14 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
           }));
         }
       } catch (e) {
-        console.error("Auto-categorize failed silently", e);
+        console.error("Auto-categorize failed", e);
       } finally {
         setLoadingAi(false);
       }
-    }, 1000); 
+    }, 1200); 
 
     return () => clearTimeout(timer);
   }, [formData.description, editTransaction, categories.expense, activeTab, presetData]);
-
-  const handleAiAutoFill = async () => {
-    if (!formData.description) return;
-    setLoadingAi(true);
-    const result = await autoCategorizeTransaction(formData.description, categories.expense);
-    setLoadingAi(false);
-
-    if (result) {
-      setFormData(prev => ({
-        ...prev,
-        category: result.category || prev.category,
-        type: (result.type as TransactionType) || prev.type,
-        paymentMethod: result.paymentMethod || prev.paymentMethod,
-        reason: result.reason || prev.reason,
-        isRecurring: result.isRecurringLikely || prev.isRecurring
-      }));
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,11 +98,8 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
       createdAt: Date.now()
     };
 
-    if (editTransaction) {
-      updateTransaction(transaction);
-    } else {
-      addTransaction(transaction);
-    }
+    if (editTransaction) updateTransaction(transaction);
+    else addTransaction(transaction);
     onClose();
   };
 
@@ -128,9 +107,9 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
   const isRepaymentSelected = activeTab === 'expense' && formData.category === 'Loan Repayment';
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
-        <div className="flex p-2 bg-gray-100 dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 shrink-0">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center z-[200] p-0 sm:p-4 transition-all duration-300">
+      <div className="bg-white dark:bg-violet-900 rounded-t-[2.5rem] sm:rounded-[3rem] w-full max-w-xl shadow-[0_-25px_50px_-12px_rgba(0,0,0,0.5)] sm:shadow-2xl max-h-[92vh] sm:max-h-[95vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-500 border-x border-t sm:border border-gray-100 dark:border-violet-800">
+        <div className="p-3 bg-gray-100 dark:bg-violet-950 border-b border-gray-200 dark:border-violet-800 shrink-0 flex items-center gap-2">
           {(['income', 'expense', 'loan'] as const).map(tab => (
             <button
               key={tab}
@@ -142,136 +121,114 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
                   category: tab === 'loan' ? 'Loan' : (tab === 'income' ? categories.income[0] : categories.expense[0]) 
                 }));
               }}
-              className={`flex-1 py-3 text-sm font-bold capitalize transition-all rounded-2xl flex items-center justify-center gap-2
+              className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest transition-all rounded-3xl flex items-center justify-center gap-2 active:scale-95
                 ${activeTab === tab 
-                  ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' 
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  ? 'bg-white dark:bg-violet-900 text-primary shadow-xl ring-1 ring-black/5' 
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
                 }
               `}
             >
-              {tab === 'income' && <Check size={16} className="text-emerald-500" />}
-              {tab === 'expense' && <X size={16} className="text-rose-500" />}
-              {tab === 'loan' && <HandCoins size={16} className="text-indigo-500" />}
+              {tab === 'income' && <Check size={14} className="text-emerald-500" />}
+              {tab === 'expense' && <X size={14} className="text-rose-500" />}
+              {tab === 'loan' && <HandCoins size={14} className="text-indigo-500" />}
               {tab}
             </button>
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-8 sm:p-10 space-y-8 overflow-y-auto flex-1 scrollbar-thin">
           {activeTab === 'loan' ? (
-             <div className="space-y-4 animate-in fade-in duration-200">
-                <div>
-                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Loan Nature</label>
-                   <div className="flex p-1 bg-gray-50 dark:bg-slate-900 rounded-xl gap-2">
-                      <button type="button" onClick={() => setFormData({...formData, loanType: 'borrowed'})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${formData.loanType === 'borrowed' ? 'bg-white dark:bg-slate-700 text-rose-500 shadow-sm' : 'text-gray-400'}`}>Borrowed (I owe)</button>
-                      <button type="button" onClick={() => setFormData({...formData, loanType: 'lent'})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${formData.loanType === 'lent' ? 'bg-white dark:bg-slate-700 text-emerald-500 shadow-sm' : 'text-gray-400'}`}>Lent (Owed to me)</button>
-                   </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4">
-                   <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Person / Organization</label>
-                      <div className="relative">
-                         <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                         <input type="text" required placeholder="e.g. Kaleb, Bank of America" value={formData.counterparty} onChange={e => setFormData({...formData, counterparty: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
-                      </div>
-                   </div>
-                   <div className="grid grid-cols-2 gap-4">
-                      <div>
-                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Amount</label>
-                         <div className="relative">
-                           <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                           <input type="number" required min="0.01" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
-                         </div>
-                      </div>
-                      <div>
-                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Date</label>
-                         <div className="relative">
-                           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                           <input type="date" required value={formData.date?.split('T')[0]} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
-                         </div>
-                      </div>
-                   </div>
-                   <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
-                      <div className="relative">
-                        <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <select 
-                          value={formData.paymentMethod} 
-                          onChange={e => setFormData({...formData, paymentMethod: e.target.value})} 
-                          className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white appearance-none"
-                        >
-                          {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                      </div>
-                   </div>
-                </div>
+             <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
                 <div className="space-y-3">
-                   <div className="flex items-center gap-2">
-                      <input type="checkbox" id="set-due-date" checked={hasDueDate} onChange={e => setHasDueDate(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
-                      <label htmlFor="set-due-date" className="text-sm font-bold text-gray-700 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"><Clock size={16} className="text-indigo-500" /> Set a repayment deadline?</label>
+                   <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Transaction Nature</label>
+                   <div className="flex p-1.5 bg-gray-50 dark:bg-violet-950 rounded-2xl gap-2 shadow-inner">
+                      <button type="button" onClick={() => setFormData({...formData, loanType: 'borrowed'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${formData.loanType === 'borrowed' ? 'bg-white dark:bg-violet-900 text-rose-500 shadow-md' : 'text-gray-400 opacity-50'}`}>Payable</button>
+                      <button type="button" onClick={() => setFormData({...formData, loanType: 'lent'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${formData.loanType === 'lent' ? 'bg-white dark:bg-violet-900 text-emerald-500 shadow-md' : 'text-gray-400 opacity-50'}`}>Receivable</button>
                    </div>
-                   {hasDueDate && (
-                      <div className="animate-in slide-in-from-top-2 duration-200 bg-gray-50 dark:bg-slate-900 p-4 rounded-2xl border border-gray-100 dark:border-slate-700">
-                         <label className="block text-[10px] font-extrabold text-indigo-500 uppercase tracking-widest mb-1">Repayment Due Date</label>
-                         <input type="date" required={hasDueDate} value={formData.dueDate?.split('T')[0]} onChange={e => setFormData({...formData, dueDate: e.target.value})} className="w-full px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-none focus:ring-2 focus:ring-primary dark:text-white text-sm" />
+                </div>
+                <div className="space-y-6">
+                   <div className="space-y-2">
+                      <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Counterparty</label>
+                      <div className="relative">
+                         <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                         <input type="text" required placeholder="e.g. David, Bank of NY" value={formData.counterparty} onChange={e => setFormData({...formData, counterparty: e.target.value})} className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white placeholder:text-gray-400 font-bold transition-all shadow-inner outline-none" />
                       </div>
-                   )}
+                   </div>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Principal Amount</label>
+                         <div className="relative">
+                           <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                           <input type="number" required min="0.01" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white font-bold transition-all shadow-inner outline-none" />
+                         </div>
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Origin Date</label>
+                         <div className="relative">
+                           <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                           <input type="date" required value={formData.date?.split('T')[0]} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white font-bold transition-all shadow-inner outline-none" />
+                         </div>
+                      </div>
+                   </div>
                 </div>
              </div>
           ) : (
-             <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{activeTab === 'income' ? 'Income Source' : 'Vendor / Description'}</label>
-                  <div className="relative">
-                    <input type="text" required placeholder={activeTab === 'income' ? "e.g. Monthly Salary" : "e.g. Starbucks Coffee"} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white pr-24" />
-                    <button type="button" onClick={handleAiAutoFill} disabled={!formData.description || loadingAi} className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-white dark:bg-slate-700 text-primary rounded-xl text-xs font-bold flex items-center gap-1 hover:shadow-md disabled:opacity-50 border border-gray-100 dark:border-slate-600">
-                      {loadingAi ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AUTO
+             <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">{activeTab === 'income' ? 'Origin' : 'Label / Payee'}</label>
+                  <div className="relative group">
+                    <input type="text" required placeholder={activeTab === 'income' ? "e.g. Corporate Salary" : "e.g. Daily Groceries"} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-6 py-4 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white pr-28 font-bold transition-all shadow-inner outline-none" />
+                    <button type="button" onClick={() => {}} disabled={!formData.description || loadingAi} className="absolute right-2 top-2 bottom-2 px-4 bg-white dark:bg-violet-800 text-primary rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:shadow-xl disabled:opacity-50 border border-gray-100 dark:border-violet-700 transition-all active:scale-90">
+                      {loadingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} AI
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Amount</label>
-                    <input type="number" required min="0" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Date</label>
-                    <input type="date" required value={formData.date?.split('T')[0]} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Category</label>
-                    <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white">
-                      <option value="">Select Category</option>
-                      {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Payment Method</label>
-                    <select value={formData.paymentMethod} onChange={e => setFormData({...formData, paymentMethod: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white">
-                      {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                </div>
-                {isRepaymentSelected && (
-                  <div className="animate-in slide-in-from-top-2 duration-200">
-                    <label className="block text-xs font-bold text-indigo-500 uppercase tracking-widest mb-1">Person / Organization being repaid</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Amount</label>
                     <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input type="text" required placeholder="Link to original loan counterparty" value={formData.counterparty} onChange={e => setFormData({...formData, counterparty: e.target.value})} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-indigo-50 dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900 focus:ring-2 focus:ring-primary dark:text-white" />
+                       <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                       <input type="number" required min="0" step="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white font-bold transition-all shadow-inner outline-none" />
                     </div>
                   </div>
-                )}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Timeline</label>
+                    <div className="relative">
+                       <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                       <input type="date" required value={formData.date?.split('T')[0]} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white font-bold transition-all shadow-inner outline-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Tag</label>
+                    <div className="relative">
+                       <LayoutGrid className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                       <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white font-bold transition-all shadow-inner outline-none appearance-none">
+                        {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Method</label>
+                    <div className="relative">
+                       <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                       <select value={formData.paymentMethod} onChange={e => setFormData({...formData, paymentMethod: e.target.value})} className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white font-bold transition-all shadow-inner outline-none appearance-none">
+                        {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
              </div>
           )}
-          <div className="space-y-4">
-             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Context / Reason</label>
-             <textarea placeholder="Any additional notes..." value={formData.reason || ''} onChange={e => setFormData({...formData, reason: e.target.value})} className="w-full px-4 py-3 rounded-2xl bg-gray-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary dark:text-white min-h-[80px]" />
+          <div className="space-y-2">
+             <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Additional Context</label>
+             <textarea placeholder="Reasoning or notes..." value={formData.reason || ''} onChange={e => setFormData({...formData, reason: e.target.value})} className="w-full px-6 py-5 rounded-[1.5rem] bg-gray-50 dark:bg-violet-950 border-none focus:ring-4 focus:ring-primary/10 dark:text-white min-h-[120px] font-medium transition-all shadow-inner outline-none" />
           </div>
         </form>
-        <div className="p-6 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 flex gap-3 shrink-0">
-          <button type="button" onClick={onClose} className="flex-1 py-4 rounded-2xl text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-200 dark:hover:bg-slate-800 transition-colors">Cancel</button>
-          <button onClick={handleSubmit} className="flex-[2] py-4 rounded-2xl bg-primary text-white font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2">
-            <Check size={20} /> Save Record
+
+        <div className="p-8 sm:p-10 border-t border-gray-100 dark:border-violet-800 bg-gray-50 dark:bg-violet-950/50 flex gap-4 shrink-0">
+          <button type="button" onClick={onClose} className="flex-1 py-4.5 rounded-[1.5rem] text-gray-500 dark:text-violet-400 font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 dark:hover:bg-violet-800 transition-all">Cancel</button>
+          <button onClick={handleSubmit} className="flex-[2] py-4.5 rounded-[1.5rem] bg-primary text-white font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all shadow-2xl shadow-primary/40 flex items-center justify-center gap-3 active:scale-95">
+            <Check size={20} /> Commit Entry
           </button>
         </div>
       </div>

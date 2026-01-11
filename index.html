@@ -7,26 +7,63 @@
     <title>WealthMind AI Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+      // Apply theme immediately to prevent flashing
+      (function() {
+        // Defaults to light. Only switches to dark if wm_theme is explicitly 'dark'
+        const theme = localStorage.getItem('wm_theme') || 'light';
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.backgroundColor = '#180c18';
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.style.backgroundColor = '#f9fafb';
+        }
+      })();
+
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              primary: '#6366f1', // Indigo 500
-              secondary: '#10b981', // Emerald 500
-              danger: '#ef4444', // Red 500
-              dark: '#1e293b', // Slate 800
+              violet: {
+                50: "#f7eef7", 100: "#eeddee", 200: "#debade", 300: "#cd98cd", 400: "#bd75bd", 
+                500: "#ac53ac", 600: "#8a428a", 700: "#673267", 800: "#452145", 900: "#221122", 950: "#180c18"
+              },
+              evergreen: {
+                50: "#e5fffe", 100: "#ccfffc", 200: "#99fffa", 300: "#66fff7", 400: "#33fff5", 
+                500: "#00fff2", 600: "#00ccc2", 700: "#009991", 800: "#006661", 900: "#003330", 950: "#002422"
+              },
+              lemon: {
+                50: "#faf9eb", 100: "#f4f3d7", 200: "#e9e7af", 300: "#dedb87", 400: "#d3cf5f", 
+                500: "#c8c337", 600: "#a09c2c", 700: "#787521", 800: "#504e16", 900: "#28270b", 950: "#1c1b08"
+              },
+              fawn: {
+                50: "#f8f5ec", 100: "#f2ebd9", 200: "#e4d7b4", 300: "#d7c28e", 400: "#caae68", 
+                500: "#bd9a42", 600: "#977b35", 700: "#715c28", 800: "#4b3e1b", 900: "#261f0d", 950: "#1a1609"
+              },
+              plum: {
+                50: "#f9ebf4", 100: "#f3d8e8", 200: "#e8b0d2", 300: "#dc89bb", 400: "#d062a4", 
+                500: "#c43b8d", 600: "#9d2f71", 700: "#762355", 800: "#4f1739", 900: "#270c1c", 950: "#1b0814"
+              },
+              primary: '#ac53ac',
+              secondary: '#00ccc2',
+              danger: '#c43b8d',
+              dark: '#180c18',
+            },
+            animation: {
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'bounce-slow': 'bounce 3s infinite',
             }
           }
         }
       }
     </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
       body {
         font-family: 'Inter', sans-serif;
+        -webkit-tap-highlight-color: transparent;
       }
-      /* Custom scrollbar for better aesthetics */
       .scrollbar-thin::-webkit-scrollbar {
         width: 6px;
       }
@@ -38,7 +75,15 @@
         border-radius: 10px;
       }
       .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-        background: #334155;
+        background: #452145;
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(8px);
+      }
+      .dark .glass {
+        background: rgba(24, 12, 24, 0.8);
+        backdrop-filter: blur(8px);
       }
     </style>
   <script type="importmap">
@@ -55,9 +100,8 @@
 }
 </script>
 </head>
-  <body class="bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+  <body class="bg-gray-50 dark:bg-violet-950 text-slate-800 dark:text-violet-50 transition-colors duration-500 antialiased overflow-hidden">
     <div id="root"></div>
-    <!-- Entry point for the application -->
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>

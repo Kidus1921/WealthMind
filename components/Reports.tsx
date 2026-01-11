@@ -13,7 +13,7 @@ import {
 import { Transaction, AIInsight } from '../types.ts';
 import { generateFinancialInsights } from '../services/geminiService.ts';
 
-const COLORS = ['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+const COLORS = ['#ac53ac', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
 type DateRangeType = 'today' | 'week' | 'month' | 'last_month' | 'custom';
 
@@ -142,32 +142,6 @@ export const Reports: React.FC = () => {
     }));
   }, [currentPeriodTxns, bounds]);
 
-  // 5. Loan Status Summary
-  const loanSummary = useMemo(() => {
-    const balances: Record<string, { principal: number, repaid: number, type: string }> = {};
-    
-    transactions.forEach(t => {
-      if (!t.counterparty) return;
-      const key = `${t.loanType}:${t.counterparty}`;
-      if (!balances[key]) {
-        balances[key] = { principal: 0, repaid: 0, type: t.loanType || '' };
-      }
-      
-      if (t.type === 'loan') balances[key].principal += t.amount;
-      else if (t.category === 'Loan Repayment') {
-        if (t.subtype !== 'loan_interest') balances[key].repaid += t.amount;
-      }
-    });
-
-    return Object.entries(balances)
-      .map(([key, data]) => ({
-        counterparty: key.split(':')[1],
-        remaining: data.principal - data.repaid,
-        type: data.type
-      }))
-      .filter(l => l.remaining > 0);
-  }, [transactions]);
-
   // 6. AI Insights Fetching
   useEffect(() => {
     const fetch = async () => {
@@ -216,18 +190,18 @@ export const Reports: React.FC = () => {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-black text-gray-900 dark:text-white">Financial Intelligence</h2>
-          <p className="text-sm text-gray-500 font-medium">Data-driven analysis of your transactions</p>
+          <p className="text-sm text-gray-500 dark:text-violet-400 font-medium">Data-driven analysis of your transactions</p>
         </div>
         
-        <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-2xl border border-gray-200 dark:border-slate-700">
+        <div className="flex bg-gray-100 dark:bg-violet-900 p-1 rounded-2xl border border-gray-200 dark:border-violet-800 shadow-sm">
            {(['today', 'week', 'month', 'last_month'] as const).map((r) => (
              <button
                key={r}
                onClick={() => { setDateRange(r); setActiveFilter(null); }}
                className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${
                  dateRange === r 
-                   ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' 
-                   : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                   ? 'bg-white dark:bg-violet-800 text-primary shadow-sm' 
+                   : 'text-gray-500 hover:text-gray-700 dark:hover:text-violet-200'
                }`}
              >
                {r.replace('_', ' ')}
@@ -238,7 +212,7 @@ export const Reports: React.FC = () => {
 
       {/* Main Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-gray-100 dark:border-slate-700 shadow-sm">
+        <div className="bg-white dark:bg-violet-900 p-6 rounded-3xl border border-gray-100 dark:border-violet-800 shadow-sm">
            <div className="flex justify-between items-center mb-4">
               <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl flex items-center justify-center">
                  <ArrowDownLeft size={20} />
@@ -249,7 +223,7 @@ export const Reports: React.FC = () => {
            <p className="text-xs text-emerald-500 font-bold mt-2">Excluding Principal</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-gray-100 dark:border-slate-700 shadow-sm relative overflow-hidden">
+        <div className="bg-white dark:bg-violet-900 p-6 rounded-3xl border border-gray-100 dark:border-violet-800 shadow-sm relative overflow-hidden">
            <div className="flex justify-between items-center mb-4">
               <div className="w-10 h-10 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-2xl flex items-center justify-center">
                  <ArrowUpRight size={20} />
@@ -263,7 +237,7 @@ export const Reports: React.FC = () => {
            </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-gray-100 dark:border-slate-700 shadow-sm">
+        <div className="bg-white dark:bg-violet-900 p-6 rounded-3xl border border-gray-100 dark:border-violet-800 shadow-sm">
            <div className="flex justify-between items-center mb-4">
               <div className="w-10 h-10 bg-primary/10 text-primary rounded-2xl flex items-center justify-center">
                  <Wallet size={20} />
@@ -280,7 +254,7 @@ export const Reports: React.FC = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
          {/* Spending Distribution */}
-         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-gray-100 dark:border-slate-700 shadow-sm flex flex-col">
+         <div className="bg-white dark:bg-violet-900 p-6 rounded-3xl border border-gray-100 dark:border-violet-800 shadow-sm flex flex-col">
             <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-6 flex items-center gap-2">
                <Tag size={16} className="text-indigo-500" /> Spending Breakdown
             </h3>
@@ -311,11 +285,10 @@ export const Reports: React.FC = () => {
                   </PieChart>
                </ResponsiveContainer>
             </div>
-            <p className="text-center text-[10px] font-bold text-gray-400 mt-4 uppercase tracking-tighter">Click a slice to filter transactions</p>
          </div>
 
          {/* Cash Flow Trend */}
-         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-gray-100 dark:border-slate-700 shadow-sm flex flex-col">
+         <div className="bg-white dark:bg-violet-900 p-6 rounded-3xl border border-gray-100 dark:border-violet-800 shadow-sm flex flex-col">
             <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-6 flex items-center gap-2">
                <Calendar size={16} className="text-indigo-500" /> Daily Cash Flow
             </h3>
@@ -344,56 +317,16 @@ export const Reports: React.FC = () => {
                   </AreaChart>
                </ResponsiveContainer>
             </div>
-            <p className="text-center text-[10px] font-bold text-gray-400 mt-4 uppercase tracking-tighter">Click a bar to view that day's records</p>
-         </div>
-      </div>
-
-      {/* Loan Overview Section */}
-      <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-gray-100 dark:border-slate-700 shadow-sm">
-         <div className="flex justify-between items-center mb-6">
-            <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-               <HandCoins size={18} className="text-indigo-500" /> Loan Ledger
-            </h3>
-            <div className="flex gap-4">
-               <div className="text-right">
-                  <p className="text-[10px] font-black uppercase text-rose-500">I Owe</p>
-                  <p className="font-bold text-gray-900 dark:text-white">
-                     {currency}{loanSummary.filter(l => l.type === 'borrowed').reduce((acc, l) => acc + l.remaining, 0).toLocaleString()}
-                  </p>
-               </div>
-               <div className="text-right">
-                  <p className="text-[10px] font-black uppercase text-emerald-500">Owed to Me</p>
-                  <p className="font-bold text-gray-900 dark:text-white">
-                     {currency}{loanSummary.filter(l => l.type === 'lent').reduce((acc, l) => acc + l.remaining, 0).toLocaleString()}
-                  </p>
-               </div>
-            </div>
-         </div>
-         
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {loanSummary.length > 0 ? loanSummary.slice(0, 4).map((loan, i) => (
-               <div key={i} className="p-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-800 flex justify-between items-center">
-                  <div>
-                     <p className="text-xs font-bold text-gray-800 dark:text-white truncate max-w-[100px]">{loan.counterparty}</p>
-                     <p className={`text-[10px] font-black uppercase ${loan.type === 'borrowed' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                        {loan.type === 'borrowed' ? 'Debt' : 'Receivable'}
-                     </p>
-                  </div>
-                  <p className="font-black text-gray-900 dark:text-white">{currency}{loan.remaining.toLocaleString()}</p>
-               </div>
-            )) : (
-               <div className="col-span-full py-4 text-center text-gray-400 text-xs font-bold uppercase tracking-widest opacity-50">No active loans</div>
-            )}
          </div>
       </div>
 
       {/* AI Insights Container */}
-      <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/50 p-6 rounded-3xl">
+      <div className="bg-indigo-50 dark:bg-violet-950 border border-indigo-100 dark:border-violet-800 p-6 rounded-3xl">
          <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30">
                <Sparkles size={18} />
             </div>
-            <h3 className="font-black text-primary dark:text-indigo-300 text-sm uppercase tracking-widest">Wealth Intelligence Insights</h3>
+            <h3 className="font-black text-primary dark:text-violet-300 text-sm uppercase tracking-widest">Wealth Intelligence Insights</h3>
          </div>
          
          {loadingInsights ? (
@@ -403,13 +336,13 @@ export const Reports: React.FC = () => {
          ) : insights.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                {insights.map((ins, i) => (
-                  <div key={i} className="bg-white/80 dark:bg-slate-800/80 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+                  <div key={i} className="bg-white/80 dark:bg-violet-900/80 p-4 rounded-2xl flex items-start gap-3 shadow-sm border border-transparent dark:border-violet-800">
                      <div className="mt-1 shrink-0">
                         {ins.type === 'warning' ? <AlertTriangle className="text-rose-500" size={16}/> : 
                          ins.type === 'praise' ? <TrendingUp className="text-emerald-500" size={16}/> : 
                          <Info className="text-indigo-400" size={16}/>}
                      </div>
-                     <p className="text-sm text-gray-700 dark:text-gray-300 font-medium leading-relaxed">{ins.message}</p>
+                     <p className="text-sm text-gray-700 dark:text-violet-100 font-medium leading-relaxed">{ins.message}</p>
                   </div>
                ))}
             </div>
@@ -419,8 +352,8 @@ export const Reports: React.FC = () => {
       </div>
 
       {/* Report Data Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden animate-in fade-in duration-500">
-         <div className="p-6 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-white dark:bg-violet-900 rounded-3xl shadow-sm border border-gray-100 dark:border-violet-800 overflow-hidden animate-in fade-in duration-500">
+         <div className="p-6 border-b border-gray-200 dark:border-violet-800 bg-gray-50 dark:bg-violet-950/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h3 className="font-black text-gray-900 dark:text-white flex items-center gap-2 uppercase text-sm tracking-widest">
                {activeFilter ? <Tag size={18} className="text-primary" /> : <TrendingUp size={18} className="text-primary" />}
                {activeFilter ? `Filtered: ${activeFilter.label}` : 'Current Period Activity'}
@@ -434,23 +367,20 @@ export const Reports: React.FC = () => {
                      <FilterX size={14} /> Clear Filter
                   </button>
                )}
-               <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
-                  Total Value: {currency}{filteredTransactions.reduce((acc, t) => acc + t.amount, 0).toLocaleString()}
-               </span>
             </div>
          </div>
          
          <div className="overflow-x-auto">
             <table className="w-full text-left">
-               <thead className="bg-gray-50 dark:bg-slate-800">
-                  <tr className="text-[10px] font-black uppercase text-gray-400 tracking-widest border-b border-gray-100 dark:border-slate-700">
+               <thead className="bg-gray-50 dark:bg-violet-950">
+                  <tr className="text-[10px] font-black uppercase text-gray-400 tracking-widest border-b border-gray-100 dark:border-violet-800">
                      <th className="p-6">Date</th>
                      <th className="p-6">Description</th>
                      <th className="p-6">Category</th>
                      <th className="p-6 text-right">Amount</th>
                   </tr>
                </thead>
-               <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+               <tbody className="divide-y divide-gray-100 dark:divide-violet-800">
                   {filteredTransactions.length === 0 ? (
                      <tr>
                         <td colSpan={4} className="p-20 text-center flex flex-col items-center justify-center gap-4 opacity-40">
@@ -460,19 +390,18 @@ export const Reports: React.FC = () => {
                      </tr>
                   ) : (
                      filteredTransactions.map(t => (
-                        <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-all group">
-                           <td className="p-6 text-xs text-gray-500 font-bold">
+                        <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-violet-800/30 transition-all group">
+                           <td className="p-6 text-xs text-gray-500 dark:text-violet-400 font-bold">
                               {new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                            </td>
                            <td className="p-6">
                               <p className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                  {t.description}
-                                 {t.subtype === 'loan_principal' && <HandCoins size={14} className="text-indigo-400" />}
                               </p>
                               <p className="text-[10px] text-gray-400 font-bold uppercase">{t.paymentMethod}</p>
                            </td>
                            <td className="p-6">
-                              <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-slate-700 text-[10px] font-black uppercase text-gray-600 dark:text-gray-300">
+                              <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-violet-800 text-[10px] font-black uppercase text-gray-600 dark:text-violet-200 border dark:border-violet-700">
                                  {t.category}
                               </span>
                            </td>

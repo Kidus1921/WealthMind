@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, Moon, Sun } from 'lucide-react';
+import { useApp } from '../context/AppContext.tsx';
 
 export const Auth: React.FC = () => {
+  const { theme, toggleTheme } = useApp();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,7 +46,6 @@ export const Auth: React.FC = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // Redirect back to the current page after Google login
           redirectTo: window.location.origin,
         },
       });
@@ -56,52 +57,61 @@ export const Auth: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 dark:border-slate-700">
-        <div className="p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+    <div className="min-h-screen bg-gray-50 dark:bg-violet-950 flex items-center justify-center p-4 transition-colors duration-500">
+      <div className="absolute top-8 right-8">
+         <button
+            onClick={toggleTheme}
+            className="p-3 bg-white dark:bg-violet-900 text-gray-500 dark:text-violet-400 hover:text-primary rounded-2xl transition-all shadow-sm border border-gray-100 dark:border-violet-800"
+         >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+         </button>
+      </div>
+
+      <div className="bg-white dark:bg-violet-900 rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 dark:border-violet-800 animate-in fade-in zoom-in-95 duration-500">
+        <div className="p-10">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-black bg-gradient-to-r from-violet-500 to-plum-500 bg-clip-text text-transparent tracking-tight">
               WealthMind
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-gray-500 dark:text-violet-300 mt-3 font-medium">
               {isLogin ? 'Welcome back! Please sign in.' : 'Create an account to start tracking.'}
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/30 rounded-lg flex items-center gap-2 text-rose-600 dark:text-rose-400 text-sm">
-              <AlertCircle size={16} />
+            <div className="mb-6 p-4 bg-plum-50 dark:bg-plum-950/30 border border-plum-100 dark:border-plum-900 rounded-2xl flex items-center gap-3 text-plum-600 dark:text-plum-400 text-sm font-bold">
+              <AlertCircle size={18} />
               {error}
             </div>
           )}
 
-          <form onSubmit={handleAuth} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+              <label className="block text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest mb-2 ml-1">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-violet-600 w-5 h-5" />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl border-none bg-gray-50 dark:bg-violet-950 text-gray-900 dark:text-white focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-gray-400 font-bold shadow-inner"
                   placeholder="you@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+              <label className="block text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest mb-2 ml-1">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-violet-600 w-5 h-5" />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   minLength={6}
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl border-none bg-gray-50 dark:bg-violet-950 text-gray-900 dark:text-white focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-gray-400 font-bold shadow-inner"
                   placeholder="••••••••"
                 />
               </div>
@@ -110,22 +120,22 @@ export const Auth: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-all flex items-center justify-center shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-primary hover:bg-violet-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center shadow-xl shadow-violet-500/25 disabled:opacity-70 disabled:cursor-not-allowed active:scale-95"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isLogin ? 'Sign In' : 'Create Account')}
             </button>
           </form>
 
-          <div className="mt-6 flex items-center gap-4">
-            <div className="h-px flex-1 bg-gray-200 dark:bg-slate-700"></div>
-            <span className="text-xs text-gray-400 font-medium">OR</span>
-            <div className="h-px flex-1 bg-gray-200 dark:bg-slate-700"></div>
+          <div className="mt-8 flex items-center gap-4">
+            <div className="h-px flex-1 bg-gray-100 dark:bg-violet-800"></div>
+            <span className="text-[10px] text-gray-400 dark:text-violet-600 font-black uppercase tracking-widest">OR</span>
+            <div className="h-px flex-1 bg-gray-100 dark:bg-violet-800"></div>
           </div>
 
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full mt-6 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all text-gray-700 dark:text-gray-300 font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full mt-8 py-3.5 border-2 border-gray-100 dark:border-violet-800 rounded-2xl flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-violet-800/50 transition-all text-gray-700 dark:text-violet-200 font-bold text-sm disabled:opacity-70 active:scale-95"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -148,11 +158,11 @@ export const Auth: React.FC = () => {
             Continue with Google
           </button>
 
-          <p className="text-center mt-6 text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-center mt-8 text-sm text-gray-500 dark:text-violet-400 font-medium">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-primary font-semibold hover:underline"
+              className="text-primary font-black hover:underline ml-1"
             >
               {isLogin ? 'Sign Up' : 'Sign In'}
             </button>

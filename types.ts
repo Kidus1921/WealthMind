@@ -8,21 +8,39 @@ export interface Transaction {
   id: string;
   amount: number;
   type: TransactionType;
-  loanType?: LoanKind; // borrowed or lent
+  loanType?: LoanKind;
   subtype?: TransactionSubtype;
-  counterparty?: string; // Person or Organization for loans/repayments
+  counterparty?: string;
   category: string;
   description: string; 
-  date: string; // ISO String
-  dueDate?: string; // Repayment deadline (ISO)
+  date: string;
+  dueDate?: string;
   notes?: string;
   paymentMethod?: string;
   reason?: string; 
   isRecurring: boolean;
   recurrenceFrequency: RecurrenceFrequency;
-  nextOccurrence?: string; // ISO String
+  nextOccurrence?: string;
   createdAt: number;
   referenceId?: string;
+}
+
+// Added Trading types
+export type TradingSession = 'Asia' | 'London' | 'New York' | 'None';
+export type KillZone = 'Asia Open' | 'London Open' | 'NY Open' | 'London Close' | 'None';
+
+export interface Trade {
+  id: string;
+  userId: string;
+  tradeDate: string;
+  tradeTime: string;
+  session: TradingSession;
+  killZone: KillZone;
+  symbol: string;
+  type: 'Buy' | 'Sell';
+  pnl: number;
+  notes?: string;
+  createdAt: number;
 }
 
 export interface ChatMessage {
@@ -52,12 +70,12 @@ export interface GoalContribution {
 export interface FinancialGoal {
   id: string;
   name: string;
-  targetAmount: number; // 0 indicates a deposit-style/savings pot (no target)
+  targetAmount: number; 
   currentAmount: number;
   deadline?: string; 
   color: string;
   contributions?: GoalContribution[];
-  isDepositOnly?: boolean; // explicit flag for goals without target
+  isDepositOnly?: boolean;
 }
 
 export interface CategoryState {

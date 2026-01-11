@@ -115,14 +115,14 @@ export const Goals: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
             <Target className="text-primary" />
             Financial Goals
           </h2>
-          <p className="text-gray-500 text-sm mt-1">Track savings or manage deposit pots</p>
+          <p className="text-gray-500 dark:text-violet-400 text-sm mt-1">Track savings or manage deposit pots</p>
         </div>
         <button
           onClick={() => openForm()}
@@ -134,44 +134,44 @@ export const Goals: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+        <div className="bg-white dark:bg-violet-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-violet-800">
            <div className="flex justify-between items-center mb-2">
-             <span className="text-gray-500 text-sm font-medium">Total Balance</span>
+             <span className="text-gray-500 dark:text-violet-300 text-sm font-medium">Total Balance</span>
              <PiggyBank className="w-5 h-5 text-emerald-500" />
            </div>
            <p className="text-3xl font-bold text-gray-800 dark:text-white">{currency}{totalSaved.toLocaleString()}</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+        <div className="bg-white dark:bg-violet-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-violet-800">
            <div className="flex justify-between items-center mb-2">
-             <span className="text-gray-500 text-sm font-medium">Active Targets</span>
+             <span className="text-gray-500 dark:text-violet-300 text-sm font-medium">Active Targets</span>
              <Target className="w-5 h-5 text-blue-500" />
            </div>
            <p className="text-3xl font-bold text-gray-800 dark:text-white">{currency}{totalTarget.toLocaleString()}</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+        <div className="bg-white dark:bg-violet-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-violet-800">
            <div className="flex justify-between items-center mb-2">
-             <span className="text-gray-500 text-sm font-medium">Goal Progression</span>
+             <span className="text-gray-500 dark:text-violet-300 text-sm font-medium">Goal Progression</span>
              <TrendingUp className="w-5 h-5 text-purple-500" />
            </div>
            <p className="text-3xl font-bold text-gray-800 dark:text-white">{overallProgress.toFixed(1)}%</p>
-           <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5 mt-3">
+           <div className="w-full bg-gray-200 dark:bg-violet-950 rounded-full h-1.5 mt-3">
               <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${overallProgress}%` }}></div>
            </div>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col sm:flex-row justify-between gap-4">
+      <div className="bg-white dark:bg-violet-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-violet-800 flex flex-col sm:flex-row justify-between gap-4">
         <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
           <Filter className="w-4 h-4 text-gray-400 shrink-0" />
-          <div className="flex bg-gray-100 dark:bg-slate-700 p-1 rounded-lg">
+          <div className="flex bg-gray-100 dark:bg-violet-950 p-1 rounded-lg">
              {(['all', 'active', 'deposit', 'completed', 'overdue'] as const).map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all capitalize whitespace-nowrap ${
                     filterStatus === status 
-                      ? 'bg-white dark:bg-slate-600 text-gray-900 dark:text-white shadow-sm' 
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                      ? 'bg-white dark:bg-violet-800 text-gray-900 dark:text-white shadow-sm' 
+                      : 'text-gray-500 dark:text-violet-300 hover:text-gray-700 dark:hover:text-violet-100'
                   }`}
                 >
                   {status === 'deposit' ? 'Pots' : status}
@@ -185,7 +185,7 @@ export const Goals: React.FC = () => {
            <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="px-3 py-2 rounded-lg border-none bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 text-sm focus:ring-2 focus:ring-primary outline-none"
+              className="px-3 py-2 rounded-lg border-none bg-gray-100 dark:bg-violet-950 text-gray-700 dark:text-violet-100 text-sm focus:ring-2 focus:ring-primary outline-none"
            >
               <option value="progress">Sort by Progress</option>
               <option value="amount">Sort by Target Amount</option>
@@ -199,23 +199,12 @@ export const Goals: React.FC = () => {
           const isDepositOnly = goal.targetAmount === 0;
           const progress = isDepositOnly ? 0 : Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
           const isCompleted = !isDepositOnly && progress >= 100;
-          
-          let daysLeft = null;
-          let isOverdue = false;
-          if (goal.deadline && !isDepositOnly) {
-            const deadline = new Date(goal.deadline);
-            const now = new Date();
-            now.setHours(0,0,0,0);
-            const diffTime = deadline.getTime() - now.getTime();
-            daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            isOverdue = daysLeft < 0 && !isCompleted;
-          }
 
           return (
             <div 
               key={goal.id} 
               onClick={() => openDetail(goal)}
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden group flex flex-col h-full animate-in fade-in duration-300 cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
+              className="bg-white dark:bg-violet-900 rounded-2xl shadow-sm border border-gray-100 dark:border-violet-800 overflow-hidden group flex flex-col h-full animate-in fade-in duration-300 cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
             >
               <div className={`h-2 w-full ${goal.color}`}></div>
               <div className="p-6 flex-1 flex flex-col">
@@ -225,18 +214,9 @@ export const Goals: React.FC = () => {
                         <h3 className="font-bold text-lg text-gray-800 dark:text-white">{goal.name}</h3>
                         {isDepositOnly && <PiggyBank size={16} className="text-emerald-500" />}
                     </div>
-                    {goal.deadline && !isDepositOnly && (
-                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                        <Calendar size={12} />
-                        {new Date(goal.deadline).toLocaleDateString()} 
-                        {!isCompleted && daysLeft !== null && daysLeft >= 0 && <span className="text-orange-500">({daysLeft} days left)</span>}
-                        {isOverdue && <span className="text-rose-500 font-bold ml-1 flex items-center gap-0.5"><Clock size={10}/> Overdue</span>}
-                      </p>
-                    )}
-                    {isDepositOnly && <p className="text-[10px] font-black uppercase text-gray-400 mt-1">Savings Pot (No Target)</p>}
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => openForm(e, goal)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-500">
+                    <button onClick={(e) => openForm(e, goal)} className="p-2 hover:bg-gray-100 dark:hover:bg-violet-800 rounded-lg text-gray-500 dark:text-violet-400">
                       <Edit2 size={16} />
                     </button>
                     <button onClick={(e) => handleShowDeleteConfirm(e, goal.id)} className="p-2 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg text-rose-500">
@@ -248,10 +228,10 @@ export const Goals: React.FC = () => {
                 {!isDepositOnly && (
                   <div className="mb-4">
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-500 font-medium">Progress</span>
+                      <span className="text-gray-500 dark:text-violet-300 font-medium">Progress</span>
                       <span className="font-semibold text-gray-800 dark:text-white">{progress.toFixed(0)}%</span>
                     </div>
-                    <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3">
+                    <div className="w-full bg-gray-100 dark:bg-violet-950 rounded-full h-3 shadow-inner">
                       <div 
                         className={`h-3 rounded-full transition-all duration-1000 ${goal.color}`} 
                         style={{ width: `${progress}%` }}
@@ -262,47 +242,14 @@ export const Goals: React.FC = () => {
 
                 <div className="flex justify-between items-end mt-auto">
                    <div>
-                     <p className="text-xs text-gray-500 font-medium">Available Balance</p>
+                     <p className="text-xs text-gray-500 dark:text-violet-400 font-medium">Available Balance</p>
                      <p className="font-bold text-gray-800 dark:text-white text-lg">{currency}{goal.currentAmount.toLocaleString()}</p>
-                   </div>
-                   {!isDepositOnly && (
-                     <div className="text-right">
-                       <p className="text-xs text-gray-500 font-medium">Target</p>
-                       <p className="font-medium text-gray-600 dark:text-gray-300">{currency}{goal.targetAmount.toLocaleString()}</p>
-                     </div>
-                   )}
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-between items-center">
-                   <div className="flex gap-1.5">
-                      <button 
-                        onClick={(e) => handleQuickAdd(e, goal, 10)}
-                        className="px-3 py-1.5 bg-gray-50 dark:bg-slate-700 text-gray-600 dark:text-gray-300 rounded-lg text-[10px] font-bold hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors"
-                      >
-                        +{currency}10
-                      </button>
-                      <button 
-                        onClick={(e) => handleQuickAdd(e, goal, 100)}
-                        className="px-3 py-1.5 bg-gray-50 dark:bg-slate-700 text-gray-600 dark:text-gray-300 rounded-lg text-[10px] font-bold hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors"
-                      >
-                        +{currency}100
-                      </button>
-                   </div>
-                   <div className="text-primary text-xs font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                      View Details <ChevronRight size={14} />
                    </div>
                 </div>
               </div>
             </div>
           );
         })}
-
-        {processedGoals.length === 0 && (
-          <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-400 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700">
-            <Target size={48} className="mb-4 opacity-50" />
-            <p className="text-lg font-medium">No goals match your filters.</p>
-          </div>
-        )}
       </div>
 
       {isFormOpen && (
@@ -322,34 +269,6 @@ export const Goals: React.FC = () => {
            onDelete={(e) => { setIsDetailOpen(false); handleShowDeleteConfirm(e, viewingGoal.id); }}
         />
       )}
-
-      {confirmDeleteId && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-sm w-full p-6 text-center">
-            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle size={32} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Delete Goal?</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-              This action cannot be undone. All contribution history for this goal will be lost.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmDeleteId(null)}
-                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-xl font-medium"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -365,7 +284,6 @@ const GoalDetailModal: React.FC<{
   const [note, setNote] = useState('');
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const [submitting, setSubmitting] = useState(false);
-  const [confirmDeleteLogId, setConfirmDeleteLogId] = useState<string | null>(null);
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -378,19 +296,12 @@ const GoalDetailModal: React.FC<{
     setSubmitting(false);
   };
 
-  const handleConfirmDeleteLog = () => {
-    if (confirmDeleteLogId) {
-      deleteGoalContribution(goal.id, confirmDeleteLogId);
-      setConfirmDeleteLogId(null);
-    }
-  };
-
   const isDepositOnly = goal.targetAmount === 0;
   const progress = isDepositOnly ? 0 : Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-violet-900 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-200 border dark:border-violet-800">
         <div className={`w-full md:w-80 p-8 text-white flex flex-col justify-between ${goal.color}`}>
           <div>
             <div className="flex justify-between items-center mb-6">
@@ -447,22 +358,22 @@ const GoalDetailModal: React.FC<{
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-slate-900 overflow-hidden relative">
-          <div className="p-6 border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800 flex justify-between items-center shrink-0">
+        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-violet-950 overflow-hidden relative">
+          <div className="p-6 border-b border-gray-200 dark:border-violet-800 bg-white dark:bg-violet-900 flex justify-between items-center shrink-0">
              <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 uppercase text-sm tracking-widest">
                <History className="text-primary" size={20} />
                Transaction Ledger
              </h3>
-             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors hidden md:block">
+             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-violet-800 rounded-lg transition-colors hidden md:block">
                <X size={24} className="text-gray-400" />
              </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-             <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+             <div className="bg-white dark:bg-violet-900 p-5 rounded-2xl border border-gray-200 dark:border-violet-800 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
-                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">New Transaction</p>
-                    <div className="flex p-1 bg-gray-100 dark:bg-slate-900 rounded-xl gap-1">
+                    <p className="text-sm font-bold text-gray-700 dark:text-violet-200">New Transaction</p>
+                    <div className="flex p-1 bg-gray-100 dark:bg-violet-950 rounded-xl gap-1">
                         <button type="button" onClick={() => setMode('deposit')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'deposit' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'}`}>Deposit</button>
                         <button type="button" onClick={() => setMode('withdraw')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'withdraw' ? 'bg-rose-500 text-white shadow-sm' : 'text-gray-500'}`}>Withdraw</button>
                     </div>
@@ -471,11 +382,11 @@ const GoalDetailModal: React.FC<{
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="relative">
                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                       <input type="number" required min="0.01" step="0.01" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+                       <input type="number" required min="0.01" step="0.01" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-violet-800 bg-gray-50 dark:bg-violet-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
                     </div>
                     <div className="relative">
                        <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                       <input type="text" placeholder="Note (Optional)" value={note} onChange={e => setNote(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+                       <input type="text" placeholder="Note (Optional)" value={note} onChange={e => setNote(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-violet-800 bg-gray-50 dark:bg-violet-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
                     </div>
                   </div>
                   <div className="flex justify-end pt-2">
@@ -490,7 +401,7 @@ const GoalDetailModal: React.FC<{
              <div className="space-y-3">
                 {goal.contributions && goal.contributions.length > 0 ? (
                    goal.contributions.map(log => (
-                      <div key={log.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 flex justify-between items-center group">
+                      <div key={log.id} className="bg-white dark:bg-violet-900 p-4 rounded-xl border border-gray-100 dark:border-violet-800 flex justify-between items-center group">
                          <div className="flex items-center gap-4">
                             <div className={`p-2 rounded-lg ${log.amount >= 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20'}`}>
                                 {log.amount >= 0 ? <TrendingUp size={18} /> : <ArrowUp size={18} />}
@@ -499,13 +410,13 @@ const GoalDetailModal: React.FC<{
                                <p className={`font-bold text-sm ${log.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                  {log.amount >= 0 ? '+' : ''}{currency}{log.amount.toLocaleString()}
                                </p>
-                               <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
+                               <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-violet-400 font-bold uppercase">
                                   <span>{new Date(log.date).toLocaleDateString()}</span>
                                   {log.note && (<span>• {log.note}</span>)}
                                </div>
                             </div>
                          </div>
-                         <button onClick={() => setConfirmDeleteLogId(log.id)} className="text-gray-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity p-2"><Trash2 size={16} /></button>
+                         <button onClick={() => deleteGoalContribution(goal.id, log.id)} className="text-gray-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity p-2"><Trash2 size={16} /></button>
                       </div>
                    ))
                 ) : (
@@ -515,18 +426,6 @@ const GoalDetailModal: React.FC<{
                 )}
              </div>
           </div>
-
-          {confirmDeleteLogId && (
-            <div className="absolute inset-0 bg-white/95 dark:bg-slate-900/95 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-200 z-10">
-               <AlertTriangle size={48} className="text-rose-500 mb-4" />
-               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete History Entry?</h3>
-               <p className="text-sm text-gray-500 mb-6">Removing this entry will adjust the goal's current balance.</p>
-               <div className="flex gap-4 w-full max-w-xs mt-6">
-                  <button onClick={() => setConfirmDeleteLogId(null)} className="flex-1 px-4 py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 rounded-xl font-medium transition-colors">Cancel</button>
-                  <button onClick={handleConfirmDeleteLog} className="flex-1 px-4 py-2 bg-rose-600 text-white rounded-xl font-medium hover:bg-rose-700 transition-colors shadow-lg shadow-rose-600/20">Confirm Delete</button>
-               </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -569,61 +468,51 @@ const GoalForm: React.FC<FormProps> = ({ onClose, editGoal, addGoal, updateGoal 
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50">
+      <div className="bg-white dark:bg-violet-900 rounded-2xl w-full max-w-md shadow-xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden border dark:border-violet-800">
+        <div className="p-6 border-b border-gray-100 dark:border-violet-800 flex justify-between items-center bg-gray-50 dark:bg-violet-950/50">
           <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
             {editGoal ? <Edit2 size={20} className="text-primary"/> : <Plus size={20} className="text-primary"/>}
-            {editGoal ? 'Edit' : 'Create'} Financial Objective
+            {editGoal ? 'Edit' : 'Create'} Objective
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="flex p-1 bg-gray-100 dark:bg-slate-900 rounded-2xl gap-2">
-            <button type="button" onClick={() => setIsDepositOnly(false)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isDepositOnly ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-gray-500'}`}>Savings Goal</button>
-            <button type="button" onClick={() => setIsDepositOnly(true)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isDepositOnly ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-gray-500'}`}>Deposit Pot</button>
+          <div className="flex p-1 bg-gray-100 dark:bg-violet-950 rounded-2xl gap-2 shadow-inner">
+            <button type="button" onClick={() => setIsDepositOnly(false)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isDepositOnly ? 'bg-white dark:bg-violet-900 text-primary shadow-sm' : 'text-gray-500'}`}>Goal</button>
+            <button type="button" onClick={() => setIsDepositOnly(true)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isDepositOnly ? 'bg-white dark:bg-violet-900 text-primary shadow-sm' : 'text-gray-500'}`}>Pot</button>
           </div>
 
           <div>
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Objective Name</label>
-            <input type="text" required placeholder="e.g. Dream House, Rainy Day Pot" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all" />
+            <label className="block text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest mb-2">Objective Name</label>
+            <input type="text" required placeholder="e.g. Dream House" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-violet-800 bg-gray-50 dark:bg-violet-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all shadow-inner" />
           </div>
 
           <div className={`grid ${isDepositOnly ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
              {!isDepositOnly && (
                 <div>
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Target Amount</label>
-                    <input type="number" required min="1" value={formData.targetAmount} onChange={e => setFormData({...formData, targetAmount: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+                    <label className="block text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest mb-2">Target</label>
+                    <input type="number" required min="1" value={formData.targetAmount} onChange={e => setFormData({...formData, targetAmount: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-violet-800 bg-gray-50 dark:bg-violet-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none shadow-inner" />
                 </div>
              )}
              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">{isDepositOnly ? 'Initial Balance' : 'Initial Saved'}</label>
-                <input type="number" min="0" value={formData.currentAmount} onChange={e => setFormData({...formData, currentAmount: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
+                <label className="block text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest mb-2">Starting</label>
+                <input type="number" min="0" value={formData.currentAmount} onChange={e => setFormData({...formData, currentAmount: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-violet-800 bg-gray-50 dark:bg-violet-950 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none shadow-inner" />
              </div>
           </div>
 
-          {!isDepositOnly && (
-            <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Deadline (Optional)</label>
-                <input type="date" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" />
-            </div>
-          )}
-
           <div>
-             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Theme Color</label>
+             <label className="block text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest mb-3">Color</label>
              <div className="flex gap-2 flex-wrap">
                 {COLORS.map(c => (
-                   <button key={c} type="button" onClick={() => setFormData({...formData, color: c})} className={`w-10 h-10 rounded-2xl ${c} ${formData.color === c ? 'ring-4 ring-offset-4 ring-primary dark:ring-offset-slate-800 scale-110' : ''} transition-all`} />
+                   <button key={c} type="button" onClick={() => setFormData({...formData, color: c})} className={`w-10 h-10 rounded-2xl ${c} ${formData.color === c ? 'ring-4 ring-offset-4 ring-primary dark:ring-offset-violet-900 scale-110' : ''} transition-all shadow-sm`} />
                 ))}
              </div>
           </div>
 
           <div className="pt-4 flex gap-3">
-             <button type="button" onClick={onClose} className="flex-1 px-4 py-4 text-gray-500 font-bold hover:text-gray-700 transition-colors">Cancel</button>
-             <button type="submit" className="flex-[2] px-4 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2">
-                <Check size={20}/>
-                Save Objective
-             </button>
+             <button type="button" onClick={onClose} className="flex-1 px-4 py-4 text-gray-500 dark:text-violet-400 font-bold">Cancel</button>
+             <button type="submit" className="flex-[2] px-4 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all">Save</button>
           </div>
         </form>
       </div>
