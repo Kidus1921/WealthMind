@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Transaction, TransactionType, LoanKind, TransactionSubtype } from '../types.ts';
 import { autoCategorizeTransaction } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
-import { Sparkles, Loader2, Check, HandCoins, Info, Calendar, User, DollarSign, X, Clock, Wallet, LayoutGrid } from 'lucide-react';
+import { Sparkles, Loader2, Check, HandCoins, Info, Calendar, User, DollarSign, X, Clock, Wallet, LayoutGrid, ArrowDownLeft, ArrowUpRight, BellRing } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
@@ -104,7 +104,6 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
   };
 
   const currentCategories = activeTab === 'income' ? categories.income : categories.expense;
-  const isRepaymentSelected = activeTab === 'expense' && formData.category === 'Loan Repayment';
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center z-[200] p-0 sm:p-4 transition-all duration-300">
@@ -142,10 +141,50 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
                 <div className="space-y-3">
                    <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Transaction Nature</label>
                    <div className="flex p-1.5 bg-gray-50 dark:bg-violet-950 rounded-2xl gap-2 shadow-inner">
-                      <button type="button" onClick={() => setFormData({...formData, loanType: 'borrowed'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${formData.loanType === 'borrowed' ? 'bg-white dark:bg-violet-900 text-rose-500 shadow-md' : 'text-gray-400 opacity-50'}`}>Payable</button>
-                      <button type="button" onClick={() => setFormData({...formData, loanType: 'lent'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${formData.loanType === 'lent' ? 'bg-white dark:bg-violet-900 text-emerald-500 shadow-md' : 'text-gray-400 opacity-50'}`}>Receivable</button>
+                      <div className="flex-1 relative group">
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({...formData, loanType: 'borrowed'})} 
+                          className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${formData.loanType === 'borrowed' ? 'bg-white dark:bg-violet-900 text-rose-500 shadow-md' : 'text-gray-400 opacity-50'}`}
+                        >
+                          Payable
+                        </button>
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 hidden group-hover:block z-[210] animate-in fade-in slide-in-from-bottom-1 duration-200">
+                           <div className="bg-gray-900 dark:bg-violet-800 text-white p-4 rounded-2xl shadow-2xl border border-white/10 w-48 pointer-events-none">
+                              <div className="flex items-center gap-2 text-rose-400 font-black text-[9px] uppercase tracking-widest mb-1">
+                                <ArrowDownLeft size={14} /> Liability
+                              </div>
+                              <p className="text-[10px] font-medium text-gray-300 leading-relaxed">
+                                Money you have borrowed from someone else. It increases your cash but creates a debt.
+                              </p>
+                           </div>
+                           <div className="w-3 h-3 bg-gray-900 dark:bg-violet-800 rotate-45 mx-auto -mt-1.5 border-b border-r border-white/10"></div>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 relative group">
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({...formData, loanType: 'lent'})} 
+                          className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${formData.loanType === 'lent' ? 'bg-white dark:bg-violet-900 text-emerald-500 shadow-md' : 'text-gray-400 opacity-50'}`}
+                        >
+                          Receivable
+                        </button>
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 hidden group-hover:block z-[210] animate-in fade-in slide-in-from-bottom-1 duration-200">
+                           <div className="bg-gray-900 dark:bg-violet-800 text-white p-4 rounded-2xl shadow-2xl border border-white/10 w-48 pointer-events-none">
+                              <div className="flex items-center gap-2 text-emerald-400 font-black text-[9px] uppercase tracking-widest mb-1">
+                                <ArrowUpRight size={14} /> Asset
+                              </div>
+                              <p className="text-[10px] font-medium text-gray-300 leading-relaxed">
+                                Money you have lent to someone else. It decreases your cash but creates an asset.
+                              </p>
+                           </div>
+                           <div className="w-3 h-3 bg-gray-900 dark:bg-violet-800 rotate-45 mx-auto -mt-1.5 border-b border-r border-white/10"></div>
+                        </div>
+                      </div>
                    </div>
                 </div>
+
                 <div className="space-y-6">
                    <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest">Counterparty</label>
@@ -170,6 +209,50 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
                          </div>
                       </div>
                    </div>
+                   
+                   {/* Payable Specific: Repayment Deadline logic moved here */}
+                   {formData.loanType === 'borrowed' && (
+                     <div className="space-y-4 pt-2">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-violet-950/40 rounded-2xl border border-gray-100 dark:border-violet-800/50">
+                           <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-600 flex items-center justify-center">
+                                 <BellRing size={16} />
+                              </div>
+                              <div>
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-900 dark:text-white">Repayment Deadline</p>
+                                 <p className="text-[9px] font-bold text-gray-400 uppercase">Set fixed settlement date</p>
+                              </div>
+                           </div>
+                           <label className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                 type="checkbox" 
+                                 className="sr-only peer" 
+                                 checked={hasDueDate} 
+                                 onChange={(e) => setHasDueDate(e.target.checked)} 
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-violet-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-violet-600 peer-checked:bg-primary"></div>
+                           </label>
+                        </div>
+
+                        {hasDueDate && (
+                           <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                              <label className="text-[10px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                                 <Clock size={14} /> Settlement Date
+                              </label>
+                              <div className="relative">
+                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-400" size={20} />
+                                 <input 
+                                    type="date" 
+                                    required={hasDueDate} 
+                                    value={formData.dueDate || ''} 
+                                    onChange={e => setFormData({...formData, dueDate: e.target.value})} 
+                                    className="w-full pl-12 pr-4 py-4 rounded-[1.5rem] bg-rose-50/50 dark:bg-rose-950/20 border-2 border-rose-100 dark:border-rose-900/30 focus:ring-4 focus:ring-rose-500/10 dark:text-white font-bold transition-all shadow-inner outline-none" 
+                                 />
+                              </div>
+                           </div>
+                        )}
+                     </div>
+                   )}
                 </div>
              </div>
           ) : (

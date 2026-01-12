@@ -33,6 +33,13 @@ export const AiAssistant: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Clear component state if user changes
+  useEffect(() => {
+    setSessions([]);
+    setActiveSession(null);
+    setMessages([]);
+  }, [user?.id]);
+
   // Fetch session list
   useEffect(() => {
     if (!user) return;
@@ -43,14 +50,14 @@ export const AiAssistant: React.FC = () => {
         const { data, error } = await supabase
           .from('chat_sessions')
           .select('*')
+          .eq('user_id', user.id) // Explicitly filter by user
           .order('last_message_at', { ascending: false });
         
         if (error) {
-          console.error("Session load error:", error);
           if (error.code === '42P01') {
-            setErrorState("Chat tables not found. Please click 'DB Schema' in the sidebar and run the SQL script.");
+            setErrorState("Chat infrastructure not initialized in database.");
           } else {
-            setErrorState(`Database error: ${error.message || "Unknown error"}`);
+            setErrorState(`Connection error: ${error.message}`);
           }
           throw error;
         }
@@ -64,7 +71,7 @@ export const AiAssistant: React.FC = () => {
           })));
         }
       } catch (err: any) {
-        console.error("Caught session fetch error:", err);
+        console.error("Session fetch error:", err);
       } finally {
         setLoadingSessions(false);
       }
@@ -74,7 +81,7 @@ export const AiAssistant: React.FC = () => {
 
   // Fetch messages for active session
   useEffect(() => {
-    if (!activeSession) {
+    if (!activeSession || !user) {
       setMessages([]);
       return;
     }
@@ -84,12 +91,10 @@ export const AiAssistant: React.FC = () => {
           .from('chat_history')
           .select('*')
           .eq('session_id', activeSession.id)
+          .eq('user_id', user.id) // Security: check message belongs to user
           .order('created_at', { ascending: true });
         
-        if (error) {
-          console.error("Message load error detail:", error);
-          throw error;
-        }
+        if (error) throw error;
 
         if (data) {
           setMessages(data.map(m => ({
@@ -101,11 +106,11 @@ export const AiAssistant: React.FC = () => {
           })));
         }
       } catch (err: any) {
-        console.error("Caught message load error:", err.message);
+        console.error("Message load error:", err.message);
       }
     };
     fetchMessages();
-  }, [activeSession]);
+  }, [activeSession, user]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -125,10 +130,7 @@ export const AiAssistant: React.FC = () => {
         .select()
         .single();
       
-      if (error) {
-        console.error("Session creation error:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
         const newSession: ChatSession = {
@@ -144,15 +146,20 @@ export const AiAssistant: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setErrorState(`Failed to start session: ${err.message || "Check your database connection."}`);
+      setErrorState(`Failed to start chat: ${err.message}`);
     }
   };
 
   const deleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('Delete this conversation history?')) return;
+    if (!user || !confirm('Delete this conversation history?')) return;
     try {
-      const { error } = await supabase.from('chat_sessions').delete().eq('id', sessionId);
+      const { error } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sessionId)
+        .eq('user_id', user.id);
+      
       if (error) throw error;
       setSessions(sessions.filter(s => s.id !== sessionId));
       if (activeSession?.id === sessionId) setActiveSession(null);
@@ -180,10 +187,7 @@ export const AiAssistant: React.FC = () => {
         content: text
       }).select().single();
 
-      if (userMsgError) {
-        console.error("User message insert error:", userMsgError);
-        throw userMsgError;
-      }
+      if (userMsgError) throw userMsgError;
 
       if (userMsgData) {
         setMessages(prev => [...prev, {
@@ -197,20 +201,18 @@ export const AiAssistant: React.FC = () => {
 
       // 2. Update session activity
       const now = new Date().toISOString();
-      await supabase.from('chat_sessions').update({ last_message_at: now }).eq('id', sId);
+      await supabase.from('chat_sessions').update({ last_message_at: now }).eq('id', sId).eq('user_id', user.id);
       
-      // Update local sessions state to move current chat to top
       setSessions(prev => 
         prev.map(s => s.id === sId ? { ...s, lastMessageAt: now } : s)
             .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime())
       );
 
-      // 3. Get AI Response with Context
+      // 3. Get AI Response
       const histForAi = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const aiResult = await chatWithData(text, transactions, histForAi, currency);
       
       if (aiResult) {
-        // Store structured response in DB
         const { data: aiMsgData, error: aiMsgError } = await supabase.from('chat_history').insert({
           session_id: sId,
           user_id: user.id,
@@ -219,10 +221,7 @@ export const AiAssistant: React.FC = () => {
           insights: aiResult.insights
         }).select().single();
 
-        if (aiMsgError) {
-          console.error("AI message insert error:", aiMsgError);
-          throw aiMsgError;
-        }
+        if (aiMsgError) throw aiMsgError;
 
         if (aiMsgData) {
           setMessages(prev => [...prev, {
@@ -234,21 +233,14 @@ export const AiAssistant: React.FC = () => {
             createdAt: aiMsgData.created_at
           }]);
         }
-      } else {
-        throw new Error("AI provider returned an empty response. Check API key status.");
       }
     } catch (err: any) {
-      console.error("Chat action failed detail:", err);
-      const isSqlError = err.code === '42P01' || err.code === '42703' || err.message?.includes('not found') || err.message?.includes('RLS') || err.message?.includes('session_id');
-      const errorMsg = isSqlError 
-        ? "Database column mismatch or access denied. Ensure you ran the updated SQL script in 'DB Schema' and enabled Row Level Security."
-        : `Request failed: ${err.message || "Unknown error"}`;
-      
+      console.error("Chat action failed:", err);
       setMessages(prev => [...prev, {
         id: Math.random().toString(),
         sessionId: sId,
         role: 'ai',
-        content: errorMsg,
+        content: `Error: ${err.message || "Failed to process message."}`,
         createdAt: new Date().toISOString()
       }]);
     } finally {
@@ -267,21 +259,11 @@ export const AiAssistant: React.FC = () => {
 
   return (
     <div className="flex h-[calc(100vh-140px)] bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden relative">
-      {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm z-20 md:hidden" 
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-20 md:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* Sidebar: Chat History */}
-      <aside className={`
-        flex flex-col border-r border-gray-100 dark:border-slate-700 transition-all duration-300 z-30
-        absolute md:relative h-full bg-white dark:bg-slate-800
-        ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full md:w-0'}
-        overflow-hidden
-      `}>
+      <aside className={`flex flex-col border-r border-gray-100 dark:border-slate-700 transition-all duration-300 z-30 absolute md:relative h-full bg-white dark:bg-slate-800 ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full md:w-0'} overflow-hidden`}>
         <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/20 flex justify-between items-center">
           <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
             <History size={16} /> Recent Chats
@@ -290,9 +272,7 @@ export const AiAssistant: React.FC = () => {
             <button onClick={() => startNewSession()} className="p-2 text-primary hover:bg-primary/5 rounded-xl transition-colors" title="New Chat">
               <MessageSquarePlus size={20} />
             </button>
-            <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-400 md:hidden">
-              <X size={20} />
-            </button>
+            <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-400 md:hidden"><X size={20} /></button>
           </div>
         </div>
         
@@ -304,7 +284,7 @@ export const AiAssistant: React.FC = () => {
           ) : sessions.length === 0 ? (
             <div className="p-8 text-center text-gray-400 space-y-2">
               <MessageCircle className="mx-auto opacity-20" size={40} />
-              <p className="text-[10px] font-black uppercase tracking-widest">No Conversations</p>
+              <p className="text-[10px] font-black uppercase tracking-widest">Isolated Space</p>
             </div>
           ) : (
             sessions.map(session => (
@@ -312,45 +292,29 @@ export const AiAssistant: React.FC = () => {
                 key={session.id}
                 onClick={() => { setActiveSession(session); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
                 className={`group p-4 rounded-2xl cursor-pointer transition-all flex items-center justify-between border ${
-                  activeSession?.id === session.id 
-                    ? 'bg-primary/5 border-primary/20 text-primary' 
-                    : 'border-transparent hover:bg-gray-50 dark:hover:bg-slate-700/50 text-gray-600 dark:text-gray-300'
+                  activeSession?.id === session.id ? 'bg-primary/5 border-primary/20 text-primary' : 'border-transparent hover:bg-gray-50 dark:hover:bg-slate-700/50 text-gray-600 dark:text-gray-300'
                 }`}
               >
                 <div className="flex flex-col min-w-0 pr-4">
                   <span className="text-sm font-bold truncate">{session.title}</span>
-                  <span className="text-[10px] opacity-50 font-black uppercase tracking-tighter">
-                    {new Date(session.lastMessageAt).toLocaleDateString()}
-                  </span>
+                  <span className="text-[10px] opacity-50 font-black uppercase tracking-tighter">{new Date(session.lastMessageAt).toLocaleDateString()}</span>
                 </div>
-                <button 
-                  onClick={(e) => deleteSession(session.id, e)}
-                  className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-rose-500 rounded-lg transition-all"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <button onClick={(e) => deleteSession(session.id, e)} className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-rose-500 rounded-lg transition-all"><Trash2 size={14} /></button>
               </div>
             ))
           )}
         </div>
       </aside>
 
-      {/* Main Chat Pane */}
       <div className="flex-1 flex flex-col relative min-w-0">
         <header className="p-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-400">
-               <Menu size={20} />
-            </button>
-            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-               <Bot size={22} />
-            </div>
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-gray-400"><Menu size={20} /></button>
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><Bot size={22} /></div>
             <div className="min-w-0">
-               <h3 className="font-black text-gray-900 dark:text-white truncate">
-                 {activeSession?.title || 'Financial Assistant'}
-               </h3>
+               <h3 className="font-black text-gray-900 dark:text-white truncate">{activeSession?.title || 'Financial Assistant'}</h3>
                <p className="text-[10px] font-black uppercase text-emerald-500 flex items-center gap-1">
-                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Context Enabled
+                 <ShieldCheck size={10} /> Secure Personal Session
                </p>
             </div>
           </div>
@@ -359,9 +323,7 @@ export const AiAssistant: React.FC = () => {
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth scrollbar-thin">
           {errorState && (
             <div className="p-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-2xl text-xs font-bold border border-rose-100 dark:border-rose-900/30 flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={16} /> <span>Application Notice</span>
-              </div>
+              <div className="flex items-center gap-2"><AlertTriangle size={16} /> <span>Security Notice</span></div>
               <p className="font-medium opacity-80">{errorState}</p>
             </div>
           )}
@@ -369,20 +331,14 @@ export const AiAssistant: React.FC = () => {
           {!activeSession ? (
             <div className="h-full flex flex-col items-center justify-center space-y-8 max-w-lg mx-auto py-12">
                <div className="text-center space-y-4">
-                  <div className="w-20 h-20 bg-primary/10 rounded-[2.5rem] flex items-center justify-center text-primary mx-auto animate-bounce-slow">
-                     <Sparkles size={40} />
-                  </div>
-                  <h4 className="text-2xl font-black text-gray-900 dark:text-white">How can I help you?</h4>
-                  <p className="text-sm text-gray-500">I have access to your transactions, loans, and goals. Ask me for a summary or trend analysis.</p>
+                  <div className="w-20 h-20 bg-primary/10 rounded-[2.5rem] flex items-center justify-center text-primary mx-auto animate-bounce-slow"><Sparkles size={40} /></div>
+                  <h4 className="text-2xl font-black text-gray-900 dark:text-white">Secure AI Workspace</h4>
+                  <p className="text-sm text-gray-500">I only see <strong>your</strong> financial data. Your insights are private and isolated from all other users.</p>
                </div>
                
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                  {SUGGESTED_PROMPTS.map((prompt, i) => (
-                   <button 
-                     key={i} 
-                     onClick={() => startNewSession(prompt.text)}
-                     className="p-4 text-left rounded-2xl border border-gray-100 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5 transition-all group flex items-start gap-3 bg-white dark:bg-slate-800 shadow-sm"
-                   >
+                   <button key={i} onClick={() => startNewSession(prompt.text)} className="p-4 text-left rounded-2xl border border-gray-100 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5 transition-all group flex items-start gap-3 bg-white dark:bg-slate-800 shadow-sm">
                      <prompt.icon className="w-5 h-5 text-gray-400 group-hover:text-primary shrink-0 mt-0.5" />
                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300 leading-tight">{prompt.text}</span>
                    </button>
@@ -393,15 +349,9 @@ export const AiAssistant: React.FC = () => {
             <div className="space-y-10">
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-4 duration-300`}>
-                   <div className={`group relative max-w-[85%] p-5 rounded-[2rem] text-sm leading-relaxed shadow-sm ${
-                      msg.role === 'user' 
-                        ? 'bg-primary text-white rounded-br-none' 
-                        : 'bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-white rounded-bl-none border border-gray-100 dark:border-slate-800'
-                   }`}>
+                   <div className={`group relative max-w-[85%] p-5 rounded-[2rem] text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-white rounded-bl-none border border-gray-100 dark:border-slate-800'}`}>
                       {msg.content}
                    </div>
-                   
-                   {/* Insight Cards */}
                    {msg.role === 'ai' && msg.insights && msg.insights.length > 0 && (
                      <div className="mt-4 w-full max-w-[90%] grid grid-cols-1 gap-2 animate-in fade-in slide-in-from-top-2">
                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4 mb-1">Recommended Insights</p>
@@ -428,24 +378,10 @@ export const AiAssistant: React.FC = () => {
           )}
         </div>
 
-        <form 
-          onSubmit={(e) => activeSession ? handleSend(e) : startNewSession()} 
-          className="p-6 border-t border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex gap-3 shrink-0"
-        >
+        <form onSubmit={(e) => activeSession ? handleSend(e) : startNewSession()} className="p-6 border-t border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex gap-3 shrink-0">
           <div className="relative flex-1">
-            <input 
-              ref={inputRef}
-              type="text" 
-              value={input} 
-              onChange={e => setInput(e.target.value)} 
-              placeholder={activeSession ? "Ask anything about your finances..." : "Start a conversation..."} 
-              className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-[2rem] focus:ring-4 focus:ring-primary/10 dark:text-white placeholder-gray-400 text-sm outline-none transition-all shadow-inner" 
-            />
-            <button 
-              type="submit" 
-              disabled={loading || (!input.trim() && !!activeSession)} 
-              className="absolute right-2 top-2 bottom-2 w-10 h-10 bg-primary text-white rounded-full disabled:opacity-50 flex items-center justify-center shadow-lg shadow-primary/20 transition-all active:scale-90"
-            >
+            <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)} placeholder={activeSession ? "Ask about your finances..." : "Start private chat..."} className="w-full px-6 py-4 bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-[2rem] focus:ring-4 focus:ring-primary/10 dark:text-white placeholder:text-gray-400 text-sm outline-none transition-all shadow-inner" />
+            <button type="submit" disabled={loading || (!input.trim() && !!activeSession)} className="absolute right-2 top-2 bottom-2 w-10 h-10 bg-primary text-white rounded-full disabled:opacity-50 flex items-center justify-center shadow-lg shadow-primary/20 transition-all active:scale-90">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send size={18} />}
             </button>
           </div>

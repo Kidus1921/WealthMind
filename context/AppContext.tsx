@@ -77,27 +77,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [focusEntity, setFocusEntity] = useState<FocusEntity | null>(null);
 
+  // Aggressive state reset function
+  const purgeLocalState = () => {
+    setTransactions([]);
+    setGoals([]);
+    setTrades([]);
+    setCategories(DEFAULT_CATEGORIES);
+    setPaymentMethods(DEFAULT_PAYMENT_METHODS);
+    setCurrencyState('$');
+    setFocusEntity(null);
+  };
+
   useEffect(() => {
-    // Initial session check
     const checkInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) purgeLocalState();
       setUser(session?.user ?? null);
       setLoading(false);
-
-      // Clean up hash if it exists to keep URL tidy after successful login
-      if (window.location.hash && session?.user) {
-        window.history.replaceState(null, '', window.location.pathname);
-      }
     };
 
     checkInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      if (!session?.user) {
-        setTransactions([]);
-        setGoals([]);
-        setTrades([]);
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        purgeLocalState();
       }
       setLoading(false);
     });
@@ -110,7 +114,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const fetchData = async () => {
       try {
-        const { data: txnData } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+        // Explicitly filter by user_id even if RLS is on
+        const { data: txnData } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false });
+        
         if (txnData) {
           setTransactions(txnData.map((row: any) => ({
             id: row.id,
@@ -131,7 +141,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           })));
         }
 
-        const { data: goalsData } = await supabase.from('goals').select('*, goal_logs(*)');
+        const { data: goalsData } = await supabase
+          .from('goals')
+          .select('*, goal_logs(*)')
+          .eq('user_id', user.id);
+
         if (goalsData) {
           setGoals(goalsData.map((row: any) => ({
              id: row.id,
@@ -150,13 +164,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           })));
         }
 
-        const { data: settingsData } = await supabase.from('settings').select('*').limit(1);
+        const { data: settingsData } = await supabase
+          .from('settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .limit(1);
+
         if (settingsData && settingsData.length > 0) {
            const row = settingsData[0];
            setCurrencyState(row.currency || '$');
+           if (row.theme) setTheme(row.theme as 'light' | 'dark');
         }
 
-        const { data: tradesData } = await supabase.from('trades').select('*').order('trade_date', { ascending: false });
+        const { data: tradesData } = await supabase
+          .from('trades')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('trade_date', { ascending: false });
+
         if (tradesData) {
           setTrades(tradesData.map((row: any) => ({
             id: row.id,
@@ -173,7 +198,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           })));
         }
       } catch (error) {
-        console.error("Data load error:", error);
+        console.error("User isolated data load error:", error);
       }
     };
     fetchData();
@@ -189,6 +214,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    purgeLocalState();
   };
 
   const addTransaction = async (t: Transaction) => {
@@ -215,17 +241,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteTransaction = async (id: string) => {
+    if (!user) return;
     setTransactions(prev => prev.filter(t => t.id !== id));
-    await supabase.from('transactions').delete().eq('id', id);
+    await supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id);
   };
 
   const updateTransaction = async (updated: Transaction) => {
+    if (!user) return;
     setTransactions(prev => prev.map(t => (t.id === updated.id ? updated : t)));
     await supabase.from('transactions').update({
       amount: updated.amount, type: updated.type, category: updated.category,
       description: updated.description, date: updated.date,
       payment_method: updated.paymentMethod, reason: updated.reason
-    }).eq('id', updated.id);
+    }).eq('id', updated.id).eq('user_id', user.id);
   };
 
   const toggleTheme = async () => {
@@ -238,8 +266,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const setCurrency = (c: string) => {
+  const setCurrency = async (c: string) => {
     setCurrencyState(c);
+    if (user) {
+      await supabase.from('settings').upsert({ user_id: user.id, currency: c }, { onConflict: 'user_id' });
+    }
   };
 
   const addCategory = (type: 'income' | 'expense', name: string) => {
@@ -272,13 +303,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateGoal = async (updated: FinancialGoal) => {
+    if (!user) return;
     setGoals(prev => prev.map(g => g.id === updated.id ? updated : g));
-    await supabase.from('goals').update({ name: updated.name, target_amount: updated.targetAmount, current_amount: updated.currentAmount, color: updated.color }).eq('id', updated.id);
+    await supabase.from('goals').update({ 
+      name: updated.name, 
+      target_amount: updated.targetAmount, 
+      current_amount: updated.currentAmount, 
+      color: updated.color 
+    }).eq('id', updated.id).eq('user_id', user.id);
   };
 
   const deleteGoal = async (id: string) => {
+    if (!user) return;
     setGoals(prev => prev.filter(g => g.id !== id));
-    await supabase.from('goals').delete().eq('id', id);
+    await supabase.from('goals').delete().eq('id', id).eq('user_id', user.id);
   };
 
   const addGoalContribution = async (goalId: string, amount: number, note?: string) => {
@@ -289,12 +327,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteGoalContribution = async (goalId: string, logId: string) => {
+    if (!user) return;
     const goal = goals.find(g => g.id === goalId);
     if (!goal) return;
     const log = goal.contributions?.find(l => l.id === logId);
     if (!log) return;
     setGoals(prev => prev.map(g => g.id === goalId ? { ...g, currentAmount: g.currentAmount - log.amount, contributions: g.contributions?.filter(l => l.id !== logId) } : g));
-    await supabase.from('goal_logs').delete().eq('id', logId);
+    await supabase.from('goal_logs').delete().eq('id', logId).eq('user_id', user.id);
   };
 
   const addTrade = async (trade: Trade) => {
@@ -308,24 +347,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateTrade = async (updated: Trade) => {
+    if (!user) return;
     setTrades(prev => prev.map(t => (t.id === updated.id ? updated : t)));
     await supabase.from('trades').update({
       trade_date: updated.tradeDate, trade_time: updated.tradeTime,
       session: updated.session, kill_zone: updated.killZone,
       symbol: updated.symbol, type: updated.type, pnl: updated.pnl, notes: updated.notes
-    }).eq('id', updated.id);
+    }).eq('id', updated.id).eq('user_id', user.id);
   };
 
   const deleteTrade = async (id: string) => {
+    if (!user) return;
     setTrades(prev => prev.filter(t => t.id !== id));
-    await supabase.from('trades').delete().eq('id', id);
+    await supabase.from('trades').delete().eq('id', id).eq('user_id', user.id);
   };
 
   const resetData = async () => {
-    if (confirm("Reset everything?")) {
-      setTransactions([]);
-      setGoals([]);
-      setTrades([]);
+    if (!user) return;
+    if (confirm("Permanently wipe your data from the server?")) {
+      await supabase.from('transactions').delete().eq('user_id', user.id);
+      await supabase.from('goals').delete().eq('user_id', user.id);
+      await supabase.from('trades').delete().eq('user_id', user.id);
+      await supabase.from('chat_sessions').delete().eq('user_id', user.id);
+      purgeLocalState();
     }
   };
 

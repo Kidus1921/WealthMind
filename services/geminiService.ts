@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction, AIInsight } from "../types.ts";
 
 // --- Rate Limiting Logic ---
-const MAX_REQUESTS_PER_HOUR = 50;
+const MAX_REQUESTS_PER_HOUR = 100;
 const RATE_LIMIT_KEY = 'wm_ai_rate_limit';
 
 const checkRateLimit = (): boolean => {
@@ -44,7 +44,6 @@ export const chatWithData = async (
   if (!checkRateLimit()) return null;
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // 1. Build financial context summary
     const now = new Date();
     const thisMonth = now.getMonth();
     const thisYear = now.getFullYear();
@@ -194,9 +193,20 @@ export const analyzeFinancialDocument = async (file: File, availableCategories: 
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const filePart = await fileToGenerativePart(file);
         const categoriesStr = availableCategories.join(", ");
+        
+        const prompt = `Task: Extract financial transaction data from this document. 
+        CRITICAL CLASSIFICATION RULE:
+        1. If this is a SHOPPING RECEIPT, RESTAURANT BILL, UTILITY INVOICE, or STORE SLIP (where you are the buyer), set type to 'expense'. 
+        2. If this is a PAYSTUB, SALARY SLIP, FREELANCE INVOICE (issued by you), or BANK CREDIT NOTIFICATION (where you are receiving money), set type to 'income'.
+        3. Do NOT assume a "Total" amount means income. It usually means an expense for the user.
+        4. Category must match one of these exactly: [${categoriesStr}].
+        5. If category is ambiguous, use 'Other'.
+        6. Amount must be a positive number.
+        7. Date must be YYYY-MM-DD.`;
+
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [filePart, { text: `Extract data (amount, date, desc, category from [${categoriesStr}])` }] },
+            contents: { parts: [filePart, { text: prompt }] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -209,12 +219,16 @@ export const analyzeFinancialDocument = async (file: File, availableCategories: 
                         referenceId: { type: Type.STRING },
                         type: { type: Type.STRING, enum: ["income", "expense"] },
                         paymentMethod: { type: Type.STRING }
-                    }
+                    },
+                    required: ["amount", "description", "date", "category", "type"]
                 }
             }
         });
         return JSON.parse(response.text || "null");
-    } catch (error) { return null; }
+    } catch (error) { 
+      console.error("Document analysis error:", error);
+      return null; 
+    }
 };
 
 const fileToGenerativePart = async (file: File) => {

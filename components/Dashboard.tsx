@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext.tsx';
-import { TrendingUp, TrendingDown, DollarSign, Wallet, ArrowRightLeft, HandCoins, Info, AlertCircle, Clock, User, ChevronRight, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Wallet, ArrowRightLeft, HandCoins, Info, AlertCircle, Clock, User, ChevronRight, Activity, Calendar, FileText } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export const Dashboard: React.FC = () => {
@@ -30,7 +30,9 @@ export const Dashboard: React.FC = () => {
       principal: number, 
       repaid: number, 
       counterparty: string,
-      loanType: 'borrowed' | 'lent'
+      loanType: 'borrowed' | 'lent',
+      lastActivity: string,
+      description: string
     }> = {};
 
     transactions.forEach(t => {
@@ -46,13 +48,28 @@ export const Dashboard: React.FC = () => {
 
       const key = `${typeKey}:${t.counterparty.toLowerCase().trim()}`;
       if (!groups[key]) {
-        groups[key] = { principal: 0, repaid: 0, counterparty: t.counterparty, loanType: typeKey };
+        groups[key] = { 
+          principal: 0, 
+          repaid: 0, 
+          counterparty: t.counterparty, 
+          loanType: typeKey, 
+          lastActivity: t.date,
+          description: t.description || 'No description provided'
+        };
       }
 
       if (t.type === 'loan' || t.subtype === 'loan_principal') {
         groups[key].principal += t.amount;
+        // Keep the most detailed description from the principal entry
+        if (t.description && t.description.length > groups[key].description.length) {
+            groups[key].description = t.description;
+        }
       } else if (t.subtype === 'loan_repayment' || t.category === 'Loan Repayment') {
         groups[key].repaid += t.amount;
+      }
+      
+      if (new Date(t.date) > new Date(groups[key].lastActivity)) {
+        groups[key].lastActivity = t.date;
       }
     });
 
@@ -83,7 +100,6 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-10 animate-in fade-in duration-700">
-      {/* Hero Balance Card */}
       <div className="bg-gradient-to-br from-primary via-purple-600 to-indigo-700 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden group">
          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-white/20 transition-all duration-1000"></div>
          <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
@@ -115,7 +131,6 @@ export const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-        {/* Loan Progress Card */}
         <div className="bg-white dark:bg-violet-900 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-violet-800 group hover:shadow-xl hover:border-primary/20 transition-all duration-500">
           <h3 className="text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-[0.2em] mb-6 flex items-center justify-between">
             <span className="flex items-center gap-2"><HandCoins size={18} className="text-indigo-500" /> Active Commitments</span>
@@ -123,36 +138,68 @@ export const Dashboard: React.FC = () => {
           </h3>
           <div className="space-y-6">
             {loanStats.length > 0 ? loanStats.slice(0, 3).map((loan, idx) => (
-              <div key={idx} className="space-y-3">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <p className="font-black text-gray-800 dark:text-white flex items-center gap-2">
-                      {loan.counterparty}
-                      <span className={`text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-tighter ${loan.loanType === 'borrowed' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40'}`}>
-                        {loan.loanType === 'borrowed' ? 'Payable' : 'Owed'}
-                      </span>
+              <div key={idx} className="relative group/loan">
+                <div className="space-y-3 cursor-help">
+                  <div className="flex justify-between items-end">
+                    <div className="min-w-0">
+                      <p className="font-black text-gray-800 dark:text-white flex items-center gap-2 truncate">
+                        {loan.counterparty}
+                        <span className={`text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-tighter shrink-0 ${loan.loanType === 'borrowed' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40'}`}>
+                          {loan.loanType === 'borrowed' ? 'Payable' : 'Receivable'}
+                        </span>
+                      </p>
+                    </div>
+                    <p className="text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-tighter whitespace-nowrap ml-2">
+                      {currency}{loan.remaining.toLocaleString()}
                     </p>
                   </div>
-                  <p className="text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-tighter">
-                    {currency}{loan.remaining.toLocaleString()} left
-                  </p>
+                  <div className="w-full bg-gray-100 dark:bg-violet-950 rounded-full h-2.5 overflow-hidden shadow-inner">
+                    <div 
+                      className={`h-full transition-all duration-[1500ms] rounded-full ${loan.loanType === 'borrowed' ? 'bg-rose-500 shadow-lg shadow-rose-500/20' : 'bg-emerald-500 shadow-lg shadow-emerald-500/20'}`}
+                      style={{ width: `${loan.progress}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 dark:bg-violet-950 rounded-full h-2.5 overflow-hidden shadow-inner">
-                  <div 
-                    className={`h-full transition-all duration-[1500ms] rounded-full ${loan.loanType === 'borrowed' ? 'bg-rose-500 shadow-lg shadow-rose-500/20' : 'bg-emerald-500 shadow-lg shadow-emerald-500/20'}`}
-                    style={{ width: `${loan.progress}%` }}
-                  />
+                
+                {/* Hover Tooltip Detail - Enhanced with Description */}
+                <div className="absolute left-0 bottom-full mb-3 hidden group-hover/loan:block z-[100] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="bg-gray-900 dark:bg-violet-800 text-white p-5 rounded-[2rem] shadow-2xl border border-white/10 w-64">
+                    <div className="space-y-4">
+                       <div>
+                          <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Contract Memo</p>
+                          <p className="text-xs font-bold text-violet-200 line-clamp-3 leading-relaxed">
+                            {loan.description}
+                          </p>
+                       </div>
+                       
+                       <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+                          <div>
+                             <p className="text-[9px] font-black uppercase text-gray-500">Initial</p>
+                             <p className="text-sm font-black">{currency}{loan.principal.toLocaleString()}</p>
+                          </div>
+                          <div>
+                             <p className="text-[9px] font-black uppercase text-gray-500">Cleared</p>
+                             <p className="text-sm font-black text-emerald-400">{currency}{loan.repaid.toLocaleString()}</p>
+                          </div>
+                       </div>
+
+                       <div className="flex items-center gap-2 text-[9px] font-black text-gray-500 uppercase pt-2">
+                         <Clock size={12} className="text-violet-500" />
+                         Activity: {new Date(loan.lastActivity).toLocaleDateString()}
+                       </div>
+                    </div>
+                  </div>
+                  <div className="w-4 h-4 bg-gray-900 dark:bg-violet-800 rotate-45 mx-auto -mt-2 border-b border-r border-white/10"></div>
                 </div>
               </div>
             )) : (
               <div className="py-10 text-center text-gray-400 font-bold uppercase tracking-widest text-[10px] border-2 border-dashed border-gray-100 dark:border-violet-800 rounded-3xl">
-                No active loans
+                No active commitments
               </div>
             )}
           </div>
         </div>
 
-        {/* Totals Breakdown Card */}
         <div className="bg-white dark:bg-violet-900 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-violet-800 flex flex-col hover:shadow-xl transition-all duration-500">
           <h3 className="text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
             <AlertCircle size={18} className="text-orange-500" /> Summary Matrix
@@ -163,7 +210,7 @@ export const Dashboard: React.FC = () => {
                   <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 flex items-center justify-center shadow-sm">
                      <TrendingDown size={24} />
                   </div>
-                  <p className="text-xs font-black text-rose-800/60 dark:text-rose-200/60 uppercase tracking-widest">Liabilities</p>
+                  <p className="text-xs font-black text-rose-800/60 dark:text-rose-200/60 uppercase tracking-widest">Payables</p>
                </div>
                <p className="text-2xl font-black text-rose-600">
                   {currency}{loanStats.filter(l => l.loanType === 'borrowed').reduce((acc, l) => acc + l.remaining, 0).toLocaleString()}
@@ -183,7 +230,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Mini Chart Card - High Precision */}
         <div className="bg-white dark:bg-violet-900 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-violet-800 lg:col-span-2 xl:col-span-1 h-full min-h-[300px] hover:shadow-xl transition-all duration-500">
           <h3 className="text-xs font-black text-gray-400 dark:text-violet-500 uppercase tracking-[0.2em] mb-8">Weekly Velocity</h3>
           <div className="h-48">
@@ -209,7 +255,6 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Flow Trend & Recent Activity Section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         <div className="bg-white dark:bg-violet-900 p-10 rounded-[3rem] shadow-sm border border-gray-100 dark:border-violet-800 h-[450px] group transition-all duration-500 hover:shadow-2xl">
           <h3 className="text-xl font-black text-gray-900 dark:text-white mb-8 flex justify-between items-center">
