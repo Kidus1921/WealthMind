@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Transaction, CategoryState, DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS, FinancialGoal, GoalContribution, Trade } from '../types.ts';
+import { Transaction, CategoryState, DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS, DEFAULT_CURRENCIES, FinancialGoal, GoalContribution, Trade } from '../types.ts';
 import { supabase } from '../services/supabaseClient.ts';
 import { User } from '@supabase/supabase-js';
 
@@ -24,6 +24,9 @@ interface AppContextProps {
   
   currency: string;
   setCurrency: (c: string) => void;
+  currencies: string[];
+  addCurrency: (c: string) => void;
+  deleteCurrency: (c: string) => void;
 
   categories: CategoryState;
   addCategory: (type: 'income' | 'expense', name: string) => void;
@@ -71,19 +74,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return (saved as 'light' | 'dark') || 'light';
   });
   const [currency, setCurrencyState] = useState('$');
+  const [currencies, setCurrencies] = useState<string[]>(DEFAULT_CURRENCIES);
   const [categories, setCategories] = useState<CategoryState>(DEFAULT_CATEGORIES);
   const [paymentMethods, setPaymentMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
   const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [focusEntity, setFocusEntity] = useState<FocusEntity | null>(null);
 
-  // Aggressive state reset function
   const purgeLocalState = () => {
     setTransactions([]);
     setGoals([]);
     setTrades([]);
     setCategories(DEFAULT_CATEGORIES);
     setPaymentMethods(DEFAULT_PAYMENT_METHODS);
+    setCurrencies(DEFAULT_CURRENCIES);
     setCurrencyState('$');
     setFocusEntity(null);
   };
@@ -114,7 +118,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const fetchData = async () => {
       try {
-        // Explicitly filter by user_id even if RLS is on
         const { data: txnData } = await supabase
           .from('transactions')
           .select('*')
@@ -174,6 +177,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
            const row = settingsData[0];
            setCurrencyState(row.currency || '$');
            if (row.theme) setTheme(row.theme as 'light' | 'dark');
+           if (row.custom_currencies) setCurrencies(row.custom_currencies);
         }
 
         const { data: tradesData } = await supabase
@@ -270,6 +274,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrencyState(c);
     if (user) {
       await supabase.from('settings').upsert({ user_id: user.id, currency: c }, { onConflict: 'user_id' });
+    }
+  };
+
+  const addCurrency = async (c: string) => {
+    const nextCurrencies = [...currencies, c.trim()];
+    setCurrencies(nextCurrencies);
+    if (user) {
+      await supabase.from('settings').upsert({ user_id: user.id, custom_currencies: nextCurrencies }, { onConflict: 'user_id' });
+    }
+  };
+
+  const deleteCurrency = async (c: string) => {
+    const nextCurrencies = currencies.filter(item => item !== c);
+    setCurrencies(nextCurrencies);
+    if (currency === c) setCurrencyState(nextCurrencies[0] || '$');
+    if (user) {
+      await supabase.from('settings').upsert({ user_id: user.id, custom_currencies: nextCurrencies }, { onConflict: 'user_id' });
     }
   };
 
@@ -377,7 +398,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     <AppContext.Provider value={{ 
       user, signOut,
       transactions, addTransaction, addTransactions, deleteTransaction, updateTransaction, 
-      theme, toggleTheme, currency, setCurrency,
+      theme, toggleTheme, currency, setCurrency, currencies, addCurrency, deleteCurrency,
       categories, addCategory, deleteCategory,
       paymentMethods, addPaymentMethod, deletePaymentMethod,
       goals, addGoal, updateGoal, deleteGoal, addGoalContribution, deleteGoalContribution,

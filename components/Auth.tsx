@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle, Moon, Sun } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, Moon, Sun, User } from 'lucide-react';
 import { useApp } from '../context/AppContext.tsx';
 
 export const Auth: React.FC = () => {
   const { theme, toggleTheme } = useApp();
   const [isLogin, setIsLogin] = useState(true);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,11 @@ export const Auth: React.FC = () => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              full_name: fullName,
+            }
+          }
         });
         if (error) throw error;
         else alert('Registration successful! You can now log in.');
@@ -69,6 +75,23 @@ export const Auth: React.FC = () => {
           )}
 
           <form onSubmit={handleAuth} className="space-y-5">
+            {!isLogin && (
+              <div className="animate-in slide-in-from-top-2 duration-300">
+                <label className="block text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest mb-2 ml-1">Full Name</label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-violet-600 w-5 h-5" />
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-none bg-gray-50 dark:bg-violet-950 text-gray-900 dark:text-white focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-gray-400 font-bold shadow-inner outline-none"
+                    placeholder="John Doe"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-[10px] font-black text-gray-400 dark:text-violet-500 uppercase tracking-widest mb-2 ml-1">Email</label>
               <div className="relative">

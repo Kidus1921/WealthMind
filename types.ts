@@ -87,6 +87,7 @@ export interface AppState {
   transactions: Transaction[];
   theme: 'light' | 'dark';
   currency: string;
+  currencies: string[];
   categories: CategoryState;
   paymentMethods: string[];
   goals: FinancialGoal[];
@@ -103,3 +104,5 @@ export const DEFAULT_CATEGORIES: CategoryState = {
 };
 
 export const DEFAULT_PAYMENT_METHODS = ['Cash', 'Credit Card', 'Debit Card', 'Bank Transfer', 'Mobile Money'];
+
+export const DEFAULT_CURRENCIES = ['$', '€', '£', '¥', 'ETB', 'Ksh', 'UGX'];

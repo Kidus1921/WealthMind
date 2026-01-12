@@ -194,12 +194,7 @@ export const analyzeFinancialDocument = async (file: File, availableCategories: 
         const filePart = await fileToGenerativePart(file);
         const categoriesStr = availableCategories.join(", ");
         
-        const prompt = `Task: Extract financial transaction data from this document image/PDF. 
-        VISUAL CLUES: 
-        - Look for merchant logos at the top.
-        - Look for "Grand Total", "Amount Due", or "Net Pay".
-        - Identify transaction date.
-        
+        const prompt = `Task: Extract financial transaction data from this document. 
         CRITICAL CLASSIFICATION RULE:
         1. If this is a SHOPPING RECEIPT, RESTAURANT BILL, UTILITY INVOICE, or STORE SLIP (where you are the buyer), set type to 'expense'. 
         2. If this is a PAYSTUB, SALARY SLIP, FREELANCE INVOICE (issued by you), or BANK CREDIT NOTIFICATION (where you are receiving money), set type to 'income'.

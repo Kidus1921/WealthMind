@@ -135,7 +135,7 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 sm:p-10 space-y-8 overflow-y-auto flex-1 scrollbar-thin">
+        <form id="transaction-form" onSubmit={handleSubmit} className="p-8 sm:p-10 space-y-8 overflow-y-auto flex-1 scrollbar-thin">
           {activeTab === 'loan' ? (
              <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
                 <div className="space-y-3">
@@ -210,7 +210,6 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
                       </div>
                    </div>
                    
-                   {/* Payable Specific: Repayment Deadline logic moved here */}
                    {formData.loanType === 'borrowed' && (
                      <div className="space-y-4 pt-2">
                         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-violet-950/40 rounded-2xl border border-gray-100 dark:border-violet-800/50">
@@ -309,8 +308,18 @@ export const TransactionForm: React.FC<Props> = ({ onClose, editTransaction, pre
         </form>
 
         <div className="p-8 sm:p-10 border-t border-gray-100 dark:border-violet-800 bg-gray-50 dark:bg-violet-950/50 flex gap-4 shrink-0">
-          <button type="button" onClick={onClose} className="flex-1 py-4.5 rounded-[1.5rem] text-gray-500 dark:text-violet-400 font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 dark:hover:bg-violet-800 transition-all">Cancel</button>
-          <button onClick={handleSubmit} className="flex-[2] py-4.5 rounded-[1.5rem] bg-primary text-white font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all shadow-2xl shadow-primary/40 flex items-center justify-center gap-3 active:scale-95">
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="flex-1 py-4.5 rounded-[1.5rem] text-gray-500 dark:text-violet-400 font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 dark:hover:bg-violet-800 transition-all border border-gray-200 dark:border-violet-800 shadow-sm"
+          >
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            form="transaction-form"
+            className="flex-[2] py-4.5 rounded-[1.5rem] bg-primary text-white font-black uppercase tracking-widest text-[10px] hover:bg-primary/90 transition-all shadow-2xl shadow-primary/40 flex items-center justify-center gap-3 active:scale-95"
+          >
             <Check size={20} /> Commit Entry
           </button>
         </div>

@@ -129,6 +129,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
   const [showSchema, setShowSchema] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+
   const notifications = useMemo(() => {
     const list: AppNotification[] = [];
     const now = new Date();
@@ -257,10 +259,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           <div className={`flex items-center ${collapsed ? 'lg:justify-center' : 'justify-between'} pt-2`}>
              <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? 'lg:w-0 lg:opacity-0' : 'w-auto opacity-100'}`}>
                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-plum-600 flex items-center justify-center text-white text-sm font-black shrink-0">
-                  {user?.email?.charAt(0).toUpperCase()}
+                  {displayName.charAt(0).toUpperCase()}
                </div>
                <div className="flex flex-col min-w-0">
-                 <span className="text-sm font-bold text-gray-800 dark:text-violet-50 truncate">{user?.email?.split('@')[0]}</span>
+                 <span className="text-sm font-bold text-gray-800 dark:text-violet-50 truncate">{displayName}</span>
                </div>
              </div>
              <button onClick={signOut} className="p-2.5 text-gray-400 hover:text-plum-500 hover:bg-plum-50 dark:hover:bg-plum-900/20 rounded-xl transition-all" title="Sign Out">
