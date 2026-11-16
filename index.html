@@ -60,7 +60,32 @@
     </script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-      body {
+
+    :root { color-scheme: light; }
+    html.dark { color-scheme: dark; }
+    .wm-shell { background: #f5f3f8; color: #202027; font-family: Inter, sans-serif; }
+    .dark .wm-shell { background: #151419; color: #f8f7fb; }
+    .wm-sidebar { background: rgba(255,255,255,.94); border-right: 1px solid #ebe8f0; }
+    .dark .wm-sidebar { background: #1d1b23; border-color: rgba(255,255,255,.07); }
+    .wm-main { background: radial-gradient(ellipse at 80% 0%, rgba(226,213,255,.35), transparent 38%), #f7f6f9; }
+    .dark .wm-main { background: radial-gradient(ellipse at 80% 0%, rgba(115,75,160,.12), transparent 38%), #151419; }
+    .wm-topbar { background: rgba(255,255,255,.78); border-bottom: 1px solid #ebe8f0; backdrop-filter: blur(18px); }
+    .dark .wm-topbar { background: rgba(29,27,35,.85); border-color: rgba(255,255,255,.07); }
+    .wm-brand-mark { display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:14px; background:#1e1e22; color:#fff; }
+    .wm-nav-item { display:flex; align-items:center; gap:13px; width:100%; padding:12px 14px; border-radius:14px; color:#85818e; font-size:13px; font-weight:650; text-align:left; transition:all .2s; }
+    .wm-nav-item:hover { color:#28252f; background:#f6f3fa; }
+    .dark .wm-nav-item:hover { color:#fff; background:rgba(255,255,255,.06); }
+    .wm-nav-item.active { background:#f0eaff; color:#7446bd; }
+    .dark .wm-nav-item.active { background:rgba(139,92,246,.16); color:#c4a7ff; }
+    .wm-icon-button { display:flex; width:40px; height:40px; align-items:center; justify-content:center; border-radius:14px; color:#716d79; background:#f6f4f8; transition:all .2s; }
+    .wm-icon-button:hover { background:#eee8f8; color:#7446bd; }
+    .dark .wm-icon-button { color:#c5bdce; background:rgba(255,255,255,.07); }
+    .wm-panel,.wm-stat-card { border:1px solid #ece9f1; border-radius:25px; background:#fff; box-shadow:0 5px 24px rgba(38,24,61,.035); }
+    .dark .wm-panel,.dark .wm-stat-card { background:#201e26; border-color:rgba(255,255,255,.07); box-shadow:none; }
+    .wm-stat-card { padding:22px 24px; }
+    .wm-stat-icon { display:flex; width:42px; height:42px; align-items:center; justify-content:center; border-radius:15px; }
+    .wm-balance-card { background:linear-gradient(125deg,#232126 0%,#30263c 55%,#4e3475 100%); box-shadow:0 15px 35px rgba(45,31,65,.14); }
+\n      body {
         font-family: 'Inter', sans-serif;
         -webkit-tap-highlight-color: transparent;
       }
